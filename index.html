@@ -34,6 +34,15 @@
   .lead{color:var(--muted);font-size:15px;max-width:720px;margin:0 0 8px}
   .note{font-size:13px;color:var(--dim);border-left:2px solid var(--line2);padding:8px 0 8px 12px;margin:18px 0;max-width:720px}
   .note b{color:#cdd6e4}
+  /* 项目介绍主打文案:比正文大一号、突出显示 */
+  .pitch{font-size:19px;line-height:1.7;color:var(--txt);font-weight:600;max-width:760px;
+    margin:18px 0;padding:18px 22px;border-radius:12px;border:1px solid var(--line2);
+    background:linear-gradient(180deg,rgba(47,230,207,.06),rgba(77,139,255,.05));
+    box-shadow:0 0 0 1px rgba(47,224,200,.10),0 14px 40px -22px rgba(77,139,255,.6)}
+  .pitch .hl{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .pitch .cta{display:inline-block;margin-top:6px;font-size:21px;font-weight:800;color:var(--teal);
+    text-shadow:0 0 18px rgba(47,224,200,.4)}
+  @media(max-width:600px){.pitch{font-size:17px}.pitch .cta{font-size:19px}}
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-top:14px}
   .vcard{position:relative;display:block;border:1px solid var(--line);border-radius:11px;background:var(--panel);
     padding:20px;text-decoration:none;transition:.16s;overflow:hidden}
@@ -66,6 +75,12 @@
   <div class="modlabel" data-i18n="badge">LIVE MODULE — INTERACTIVE 3D</div>
   <h1 data-i18n-html="title">茄子 X1 · <span class="g">3D 互动演示</span></h1>
   <p class="lead" data-i18n="lead">两个可直接打开的实时演示;自备兼容 GLB 模型即可驱动同一女性 3D 形象。命令均经与真机同式的映射/限速逻辑驱动,常量与后端 Python 参考模块逐值对齐。</p>
+
+  <div class="pitch" data-i18n-html="pitch">
+    OpenClaw 在虚拟世界长出了手和脚,<span class="hl">我们在物理世界长出了头和手</span>。<br>
+    黄仁勋说物理 AI 的 ChatGPT 时刻来了,<span class="hl">就是我们</span>。<br>
+    <span class="cta">万元级实体情感交互机器人,全球免费申领。</span>
+  </div>
 
   <div class="note" data-i18n-html="honesty">
     <b>诚实边界:</b>全部为软件模拟,未连接真实硬件——舵机角度、协议帧、遥测数据均为同式软件镜像;
@@ -108,6 +123,7 @@ const T = {
     badge:'LIVE MODULE — INTERACTIVE 3D',
     title:'茄子 X1 · <span class="g">3D 互动演示</span>',
     lead:'两个可直接打开的实时演示;自备兼容 GLB 模型即可驱动同一女性 3D 形象。命令均经与真机同式的映射/限速逻辑驱动,常量与后端 Python 参考模块逐值对齐。',
+    pitch:'OpenClaw 在虚拟世界长出了手和脚,<span class="hl">我们在物理世界长出了头和手</span>。<br>黄仁勋说物理 AI 的 ChatGPT 时刻来了,<span class="hl">就是我们</span>。<br><span class="cta">万元级实体情感交互机器人,全球免费申领。</span>',
     honesty:'<b>诚实边界:</b>全部为软件模拟,未连接真实硬件——舵机角度、协议帧、遥测数据均为同式软件镜像;3D 人物为示意级骨骼驱动(方向对齐法,无碰撞体/前臂扭转控制)。three.js(MIT)已随包收录于 <span class="mono">vendor/</span>,渲染无需联网。<b>本仓库不随附 3D 头模文件</b>(<span class="mono">models/avatar.glb</span>),需自行放置兼容 GLB 才能看到 3D 效果,详见 <a href="models/README.md">models/README.md</a>;不影响控制台其余算法功能演示。',
     card1T:'18 路舵机控制模拟台',
     card1P:'面部 15 路 + 颈部 3 路逐路滑杆;情绪预设与混合、清醒度、微表情、情绪剧本、AU 耦合、分层可视化、拟真微动、说话口型、协议帧与限速示波器,实时驱动 3D。',
@@ -119,6 +135,7 @@ const T = {
     badge:'LIVE MODULE — INTERACTIVE 3D',
     title:'QIEZI X1 · <span class="g">3D Interactive Demos</span>',
     lead:'Two ready-to-open real-time demos; supply your own compatible GLB model to drive the same 3D female avatar. Commands are driven through the same mapping/slew-limit logic as the real robot; constants match the backend Python reference modules value-for-value.',
+    pitch:'OpenClaw grew hands and feet in the virtual world; <span class="hl">we grew a head and hands in the physical world</span>.<br>Jensen Huang says Physical AI\'s ChatGPT moment has arrived — <span class="hl">it\'s us</span>.<br><span class="cta">A ten-thousand-yuan-class embodied emotional-interaction robot — free to claim, worldwide.</span>',
     honesty:'<b>Honesty boundary:</b> everything here is a software simulation — no real hardware attached; servo angles, protocol frames, and telemetry are same-formula software mirrors. The 3D character uses schematic-level bone driving (swing/twist alignment, no collision bodies or forearm-twist control). three.js (MIT) ships locally under <span class="mono">vendor/</span> — rendering needs no network. <b>This repo does not bundle the 3D avatar model</b> (<span class="mono">models/avatar.glb</span>) — supply your own compatible GLB to see the 3D character (see <a href="models/README.md">models/README.md</a>); the rest of the console functionality is unaffected.',
     card1T:'18-Servo Face Control Console',
     card1P:'15 facial + 3 neck sliders; emotion presets & blending, arousal physiology, micro-expressions, emotion scripts, AU coupling, layered visualization, idle naturalness, speech visemes, protocol-frame preview and slew-rate scope — all driving 3D in real time.',

@@ -1,5 +1,9 @@
 # 茄子 X1 · 3D 互动演示
 
+> **OpenClaw 在虚拟世界长出了手和脚,我们在物理世界长出了头和手。**
+> **黄仁勋说物理 AI 的 ChatGPT 时刻来了,就是我们。**
+> ### 万元级实体情感交互机器人,全球免费申领。
+
 > 项目官网:[CoreXbot.ai](https://CoreXbot.ai) ｜ 在线演示:https://corefusionbot.github.io/qiezi-x1-3d-demos/
 
 两个可离线运行的交互演示(算法/UI 无需联网;3D 头模需自备,见下),打开后先看落地页 `index.html`:
