@@ -1,0 +1,2643 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>茄子 X1 · 18路舵机控制模拟台(3D实况)</title>
+<link rel="icon" href="data:,"><!-- 空 favicon:免去浏览器对 /favicon.ico 的 404 请求,控制台净空 -->
+<style>
+  :root{--bg:#05070d;--panel:#0c111d;--panel2:#10192c;--line:#1a2740;--line2:#2c3e62;--txt:#e8eef9;
+        --muted:#8a98b6;--teal:#2fe6cf;--blue:#4d8bff;--amber:#ffb061;--red:#ff6b6b;--green:#49d17a;
+        --mono:"Consolas",ui-monospace,monospace}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--txt);overflow:hidden;
+       font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+       display:grid;grid-template-columns:minmax(360px,1fr) 430px;grid-template-rows:46px 1fr 168px}
+  /* —— 顶栏 —— */
+  #top{grid-column:1/3;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+  #top a{color:var(--blue);text-decoration:none;font-size:13px}
+  #top .bm{font-family:var(--mono);font-size:12px;letter-spacing:2px;color:var(--teal)}
+  #top h1{font-size:15px;margin:0;font-weight:600}
+  #top .sub{font-size:11px;color:var(--muted)}
+  .honest{margin-left:auto;font-size:11px;font-family:var(--mono);color:var(--amber);
+          border:1px solid rgba(255,176,97,.4);border-radius:7px;padding:3px 10px}
+  /* —— 3D 视口 —— */
+  #view{position:relative;min-width:0}
+  #c{display:block;width:100%;height:100%}
+  #hud{position:absolute;left:10px;top:10px;font-size:12px;background:rgba(12,16,24,.6);
+       backdrop-filter:blur(4px);padding:7px 11px;border-radius:9px;max-width:70%;z-index:5}
+  #st{color:#7ee0b8}#err{color:var(--red);margin-top:3px;font-size:11.5px}
+  #hud .net{color:var(--muted);font-size:11px;margin-top:3px}
+  #pose{position:absolute;right:10px;top:10px;z-index:5;font-family:var(--mono);font-size:11.5px;
+        background:rgba(12,16,24,.6);padding:7px 11px;border-radius:9px;color:var(--muted);text-align:right}
+  #pose b{color:var(--teal)}
+  /* —— 右侧控制面板 —— */
+  #panel{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:10px 12px;
+         overflow-x:hidden;overflow-wrap:anywhere;min-width:0}  /* 禁横向滚动:长标识符/等宽行改断行 */
+  #panel canvas{max-width:100%}                                 /* 区块内 canvas 不撑宽面板 */
+  #panel h2{font-size:12.5px;color:var(--muted);margin:12px 0 6px;font-weight:600;letter-spacing:1px;
+            border-bottom:1px solid var(--line);padding-bottom:4px}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .eb{cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--txt);
+      border-radius:8px;padding:5px 10px;font-size:12px;font-family:var(--mono)}
+  .eb:hover{border-color:var(--teal)}.eb.on{border-color:var(--teal);color:var(--teal);box-shadow:0 0 10px rgba(47,230,207,.25)}
+  .sv{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px 8px;margin:6px 0}
+  .sv .h{display:flex;align-items:baseline;gap:7px;font-family:var(--mono);font-size:11.5px}
+  .sv .h .id{color:var(--muted)}.sv .h b{color:var(--txt);font-size:12px}
+  .sv .h .lbl{color:var(--muted);font-size:11px}
+  .sv .h .rd{margin-left:auto;color:var(--teal)}
+  .sv input[type=range]{width:100%;accent-color:var(--teal);margin:4px 0 2px;height:18px}
+  .sv .bar{position:relative;height:7px;background:#0a1322;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  .sv .bar .fl{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,var(--blue),var(--teal))}
+  .sv .bar .neu{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--amber);opacity:.85}
+  .sv .ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px}
+  .note{color:var(--muted);font-size:11px;font-family:var(--mono);line-height:1.55;margin:8px 0 0}
+  /* —— 录制回放文本框 / 遥测折叠小节 —— */
+  #recIO{width:100%;height:92px;background:#0a1322;border:1px solid var(--line2);border-radius:8px;
+        color:var(--txt);font-family:var(--mono);font-size:11px;padding:6px;margin-top:6px;resize:vertical}
+  details.fold{border:1px solid var(--line);border-radius:9px;background:var(--panel2);padding:6px 9px;margin:10px 0}
+  details.fold summary{cursor:pointer;font-size:12px;color:var(--muted);font-family:var(--mono);letter-spacing:1px}
+  .telebox{font-family:var(--mono);font-size:11px;word-break:break-all;line-height:1.6;color:var(--txt);margin-top:6px}
+  .telebox .sof{color:var(--amber)}.telebox .crc{color:var(--teal)}
+  .teledec{font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.6;margin-top:4px}
+  /* —— 强度滑杆 / 安全按钮 / 颈部操控垫 / 示波器选中行 —— */
+  .inten{display:flex;align-items:center;gap:8px;margin:7px 0 2px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .inten input{flex:1;accent-color:var(--teal);height:18px;margin:0}
+  .inten b{color:var(--teal);min-width:40px;text-align:right}
+  .eb.danger{border-color:rgba(255,107,107,.5);color:var(--red)}
+  .eb.danger.on{border-color:var(--red);color:var(--red);box-shadow:0 0 10px rgba(255,107,107,.35)}
+  #padWrap{margin:6px 0}
+  #pad{display:block;width:220px;height:220px;background:#0a1322;border:1px solid var(--line2);
+       border-radius:9px;cursor:crosshair;touch-action:none}
+  .padlbl{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+  /* —— 双目视觉模拟画面(左/右眼小视图)—— */
+  .svEyes{display:flex;gap:8px;margin:6px 0}
+  .svcv{background:#0a1322;border:1px solid var(--line2);border-radius:8px;flex:0 0 auto}
+  .sv{cursor:pointer}
+  .sv.sel{border-color:var(--teal);box-shadow:0 0 8px rgba(47,230,207,.18)}
+  /* —— 表情纵深:复合情绪 / 耦合标记 / 分层图 / 行为模式 / 自定义情绪 —— */
+  .mixrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0;
+          font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .mixrow select,.mixrow input[type=text]{background:#0a1322;border:1px solid var(--line2);color:var(--txt);
+          border-radius:7px;padding:4px 6px;font-family:var(--mono);font-size:11.5px}
+  .mixrow input[type=text]{flex:1;min-width:110px}
+  .mixrow input[type=range]{flex:1;accent-color:var(--teal);height:18px;margin:0;min-width:70px}
+  .mixrow b{color:var(--teal)}
+  .cog{color:var(--amber);cursor:help;font-size:11px}
+  #layerC{display:block;width:100%;height:190px;background:#0a1322;border:1px solid var(--line);
+          border-radius:6px;margin-top:6px}
+  .lmute{display:flex;gap:9px;flex-wrap:wrap;margin-top:6px;font-family:var(--mono);font-size:11px}
+  .lmute label{display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--muted)}
+  .lmute .sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+  .eb .x{color:var(--red);margin-left:5px}
+  #cusIO,#scIO{width:100%;height:72px;background:#0a1322;border:1px solid var(--line2);border-radius:8px;
+        color:var(--txt);font-family:var(--mono);font-size:11px;padding:6px;margin-top:6px;resize:vertical}
+  #scIO{height:110px}
+  /* —— 底部:帧预览 + 示波器 + 状态栏 —— */
+  #bottom{grid-column:1/3;border-top:1px solid var(--line);background:var(--panel);
+          display:grid;grid-template-columns:1fr 340px 300px;gap:0;min-height:0}
+  /* —— 窄屏(≤920px)纵向堆叠:消除页面级横向滚动条(桌面宽度布局不变) —— */
+  @media (max-width:920px){
+    html,body{height:auto}
+    body{overflow:auto;grid-template-columns:1fr;grid-template-rows:auto}
+    #top{grid-column:1;flex-wrap:wrap;height:auto;padding:8px 12px}
+    .honest{margin-left:0;flex-basis:100%}
+    #view{min-height:46vh}
+    #panel{grid-column:1;border-left:none;border-top:1px solid var(--line)}
+    #bottom{grid-column:1;grid-template-columns:1fr}
+    #scope,#stat{border-left:none;border-top:1px solid var(--line)}
+  }
+  #scope{border-left:1px solid var(--line);padding:8px 12px;min-width:0;overflow:hidden}
+  #scope h3 .sub2{color:var(--muted);font-weight:400;font-size:10.5px;letter-spacing:0}
+  #scope h3 b{color:var(--teal);font-weight:600}
+  #scc{display:block;width:100%;height:calc(100% - 26px);background:#0a1322;border:1px solid var(--line);border-radius:6px}
+  #frame{padding:8px 14px;overflow:auto}
+  #frame h3,#stat h3{font-size:12px;color:var(--muted);margin:0 0 5px;font-weight:600;letter-spacing:1px}
+  #hex{font-family:var(--mono);font-size:12px;line-height:1.7;word-break:break-all;color:var(--txt)}
+  #hex .sof{color:var(--amber)}#hex .hd{color:var(--blue)}#hex .crc{color:var(--teal)}
+  #fmeta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px}
+  #stat{border-left:1px solid var(--line);padding:8px 14px;font-family:var(--mono);font-size:12px;line-height:1.8}
+  #stat b{color:var(--teal)}
+  .badge{font-size:11px;font-family:var(--mono);border-radius:6px;padding:2px 8px}
+  .badge.ok{color:#04121a;background:var(--teal)}.badge.bad{color:#fff;background:var(--red)}
+  /* —— 心境层 PAD 条 / 对话置信度条 / 遥测健康卡 / 轨迹 profile 小按钮 —— */
+  .padbar,.confbar{position:relative;flex:1;height:8px;background:#0a1322;border:1px solid var(--line);
+        border-radius:4px;overflow:hidden;min-width:70px}
+  .padbar .z{position:absolute;top:-2px;bottom:-2px;width:2px;left:50%;background:var(--amber);opacity:.85}
+  .padbar .f,.confbar .f{position:absolute;top:0;bottom:0;background:var(--teal)}
+  .confbar .f{left:0;background:linear-gradient(90deg,var(--blue),var(--teal))}
+  .confbar .thr{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--amber);opacity:.85}
+  .hgrade{font-family:var(--mono);font-weight:700;border-radius:7px;padding:1px 10px;font-size:14px;
+        color:#04121a;background:var(--teal)}
+  .hstat{font-family:var(--mono);font-size:11px;line-height:1.7;margin-top:6px;color:var(--txt)}
+  .hstat .ok{color:var(--green)}.hstat .warn{color:var(--amber)}.hstat .crit{color:var(--red)}
+  #scope{position:relative}
+  #profRow{position:absolute;right:12px;top:5px;z-index:3;display:flex;gap:4px;align-items:center}
+  .eb.sm{padding:1px 7px;font-size:10.5px;border-radius:6px}
+</style>
+</head>
+<body>
+
+<div id="top">
+  <a href="./index.html">← 首页</a>
+  <span class="bm">QIEZI X1 · SERVO-18 CONSOLE</span>
+  <h1>18 路舵机控制模拟台 <span class="sub">18-Servo Live Control Console · 面部 15 路 + 颈部 3 路 → 实时 3D</span></h1>
+  <button class="eb on" id="btnIdle" title="呼吸微动+自动眨眼+眼神微游走;急停/hold 时静止">🫁 拟真微动</button>
+  <button class="eb on" id="btnCouple" title="AU 耦合约束层(协同联动+拮抗互锁,同 expression_coupling.coordinate;默认开,与 C++ 引擎一致):关闭后原始 AU 直达舵机映射">⚙ 耦合层</button>
+  <span class="honest">模拟:命令经与真机同式的限速/映射,未接真串口与真舵机</span>
+  <span class="badge" id="chk">—</span>
+</div>
+
+<div id="view">
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div id="st">加载 3D 头模中…</div>
+    <div id="err"></div>
+    <div class="net">本仓库不随附 3D 头模(models/avatar.glb 需自行放置,见 models/README.md);three.js(MIT,vendor/ 本地副本)随包收录,无需联网。</div>
+  </div>
+  <div id="pose">
+    颈姿态(实际)<br>
+    PITCH <b id="pP">+0.0°</b><br>
+    YAW <b id="pY">+0.0°</b><br>
+    ROLL <b id="pR">+0.0°</b>
+  </div>
+</div>
+
+<div id="panel">
+  <h2>情绪预设(7 情绪,同后端 emotionPresets)/ Emotion presets</h2>
+  <div class="row" id="emoRow"></div>
+  <div class="row" id="cusRow" style="margin-top:4px"></div>
+  <details class="fold" id="extSec">
+    <summary>🎭 扩展状态(10 个微妙/复合状态 · EXTENDED_PRESETS 后端真值)</summary>
+    <div class="row" id="extRow" style="margin-top:6px"></div>
+    <p class="note">权重以后端 emotion_mix.EXTENDED_PRESETS 为真值(单测锁定:AU 全在可落舵机集/权重∈(0,1]/
+     与基础 7 情绪键不冲突且 AU 向量 L1 距离&gt;0.3),页面镜像已入 check_alignment 期望清单;
+     走同一 applyEmotionAU 管线(ASD 包络×强度×耦合×限速)。困倦(sleepy)的眼睑闭合走下方"清醒度"
+     生理轴,不写进 AU 预设;疑惑(confused)的单侧挑眉硬件无法做(AU 通道均为双侧联动),以组合近似。</p>
+  </details>
+  <div class="inten"><span>强度 Intensity</span>
+    <input type="range" id="inten" min="0" max="100" step="1" value="100"><b id="intenV">100%</b></div>
+  <div class="inten"><span>清醒度 Arousal</span>
+    <input type="range" id="arous" min="0" max="100" step="1" value="100"><b id="arousV">100%</b></div>
+  <p class="note">· 清醒度=生理轴(公式/系数同 arousal_physiology.py,check_alignment 锁定;
+   打盹间隔已抬升为确定性调度,可复现):眼睑基线叠加 (1−清醒度)×0.55 闭合量(经限速);
+   眨眼间隔均值 = 4.0s(gen_blink_schedule 锁定值)×(0.4+0.6×清醒度)×心境眨眼间隔缩放(见下方心境层)
+   ——低清醒更频繁(眨眼速度受同一
+   250°/s 限速,未另行放慢,如实注明);呼吸幅度 ×(1.6−0.6×清醒度)、周期 ×(1+0.5×(1−清醒度));
+   颈俯仰微垂 −(1−清醒度)×4°(同呼吸层叠加实际角,不动目标值);清醒度&lt;20% 时 8–15s 确定性间隔
+   "打盹点头"(缓降 8° 再猛回,next_doze_interval 同式)。急停/hold 时全部静止。</p>
+  <p class="note">· 预设切换经 ASD 包络:attack 0.3s 淡入 → sustain=hold(同 duration≤0 语义,不自行衰减)→
+   切换新情绪时旧情绪按 decay 0.6s 释放,交叉淡出(时间常数同 emotion_envelope.envelope_gain 默认,已锁定)。<br>
+   · 点选任一面部通道行,可在示波器看到包络斜坡(目标虚线)与 250°/s 限速斜坡(实际实线)叠加;
+   示波器右上可切换轨迹 profile(rate_limit 现状 / trapezoid 梯形 / scurve 限 jerk,同 trajectory_shaping,
+   已锁定),并叠画三种 profile 对同一目标的响应对比细线——任意 profile 恒守 |Δpos|≤0.5°/tick 限速不变量,
+   急停/hold 时轨迹状态(vel/acc)清零;加速度/加加速度上限为演示层工程值(未接真硬件)。<br>
+   · 强度拖动即时重算,不重触发包络;手动拖滑杆即接管并取消包络。<br>
+   · 面部 AU 落舵机前经耦合约束层(顶栏 ⚙ 可关):协同联动+拮抗互锁两轮定点迭代,同
+   expression_coupling.coordinate(表已锁定);被耦合修正的通道行出现 ⚙ 角标,悬停看原值→现值。
+   口型通道与复合情绪并存 AU 豁免拮抗(同 C++ 引擎豁免规则);眨眼为事件通道,旁路耦合(同后端旁路 EMA 语义)。</p>
+  <h2>心境层 Mood · PAD 三时标(同 mood_dynamics,已锁定)/ Mood layer</h2>
+  <div class="mixrow">人格 Persona <select id="moodPersona"></select>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer"
+      title="开:清醒度滑杆由心境 arousal_baseline 接管(心境驱动);关(默认):手动,现有行为不变">
+      <input type="checkbox" id="arousSrc">清醒度=心境驱动</label>
+    <button class="eb" id="btnMoodReset">心境重置</button></div>
+  <div id="moodBars"></div>
+  <div class="note" id="moodModTxt" style="color:var(--teal)">—</div>
+  <p class="note">秒级情绪事件经 leaky integrator(τ=60s)积成分钟级心境(PAD 三轴),叠加人格基线偏置后输出
+   5 项表情调制系数(常量/公式同 mood_dynamics,已入 check_alignment 锁定):intensity_gain 乘入预设强度
+   (触发预设/拖强度那一刻采样,非逐帧重算)、
+   arousal_baseline 可接管上方清醒度滑杆(默认手动不接管;拖杆/剧本渐变即回退手动)、呼吸幅度/眨眼间隔/扫视频率
+   三项缩放实际接入拟真微动层。数据流:L0 为基础 7 情绪或扩展十态时按滑杆强度持续驱动 step_mood
+   (扩展态 PAD 表 EXTENDED_EMOTION_PAD 已落地并锁定——proud 推高愉悦/掌控、bored 压低唤醒等,
+   负价扩展态的强度增益极性分支随之正确),其余时刻每帧 decay_only 纯衰减;
+   复合/自定义情绪仍无 PAD 向量,按 neutral 衰减(如实注明)。
+   诚实边界:人格档与 τ 均为演示层参数(非实测标定),条形图显示的是"瞬时心境+人格偏置"的有效心境。</p>
+  <h2>复合情绪(两情绪加权混合,同 emotion_mix)/ Compound emotion</h2>
+  <div class="row" id="mixBtns"></div>
+  <div class="mixrow">A <select id="mixA"></select> B <select id="mixB"></select>
+    <input type="range" id="mixW" min="0" max="100" step="1" value="60"><b id="mixWv">0.60/0.40</b>
+    <button class="eb" id="btnMix">混合</button></div>
+  <div class="mixrow"><input type="text" id="mixSpec" placeholder='spec:如 joy:0.6+surprise:0.4 或 joy+sadness' spellcheck="false">
+    <button class="eb" id="btnMixSpec">按 spec 混合</button></div>
+  <p class="note" id="mixInfo">复合情绪 = 各预设 AU×权重线性叠加后逐 AU 钳位 0..1,与
+   emotion_mix.mix_from_pairs / blend_emotions 同式;spec 解析同 parse_emotion_spec
+   (未知情绪贡献为空、坏权重按 1 容错);标签形式同认知侧 emotion_fusion 复合标签。
+   结果经同一 ASD 包络/强度/限速管线落舵机。预置复合按钮的权重为演示层自定(已注明),
+   PRESETS 真值不动。</p>
+  <h2>行为模式(FSM 行为,同 interaction_expression 等真值)/ Behaviors</h2>
+  <div class="row" id="behvRow"></div>
+  <div class="note" id="behvST" style="color:var(--teal)"></div>
+  <p class="note" id="behvInfo">就绪。倾听=间歇点头(间隔 1.8s·单次 0.5s·幅 0.4,同 backchannel/interaction_expression,已锁定)
+   +关注眉 AU1 0.12,点头起始亮"嗯~"(真机同时发一声轻"嗯",此处仅指示);思考=抬眉 AU1 0.30/AU2 0.20+眼上看
+   −0.45+眼神游移(眼动走 3D 眼骨,id15/16 不在台面);说话=交给下方口型演示+嘴角微扬 AU12 0.20(下颌占位摆动由真
+   viseme 调度取代);附和=单次点头;告别=1.6s 鞠躬+挥手(同 farewell_gesture,已锁定;挥手为占位通道,不在 18 路台面,
+   仅显示数值)。演示层约定:点头/鞠躬方向按本页"+ 为抬头"取负;倾听/思考 10s 自动停止;急停或点新行为即中断。</p>
+  <h2>对话驱动状态迁移(迟滞状态机,同 dialogue_affect)/ Dialogue affect</h2>
+  <div class="mixrow"><input type="text" id="daffIn" placeholder="输入一句话模拟用户说话,如:你真棒!" spellcheck="false">
+    <button class="eb" id="btnDaff">发送</button></div>
+  <div class="row" id="daffQuick"></div>
+  <div class="mixrow"><span>置信度</span>
+    <div class="confbar"><div class="thr" style="left:50%"></div><div class="f" id="daffCf" style="width:0%"></div></div>
+    <b id="daffCfV" style="min-width:64px">0.00/2.00</b></div>
+  <div class="note" id="daffCur" style="color:var(--teal)">当前 neutral · 无候选</div>
+  <div class="note" id="daffST">就绪:输入或点快捷句,文本经 extract_events → step_affect。</div>
+  <p class="note">文本 → extract_events 关键词命中 → step_affect 迟滞状态机(常量已锁定):同态强化刷新强度并清空
+   异候选;异候选先衰减、归零才另立;候选置信度累积 ≥1.0 且当前状态驻留满 2.0s 才迁移(置信上限 2.0,防锁死);
+   无事件按 0.2/s 衰减,30s 无事件回落 neutral。迁移发生时自动触发同名情绪预设/扩展状态(走既有 L0
+   包络×强度×耦合×限速通道,强度取事件表目标强度)。橙线=触发阈值 1.0。诚实边界:关键词启发式为演示层词面规则
+   (不处理否定/反讽/指代),线上由 LLM 情感标注替代/融合本结果。</p>
+  <h2>自然度层 · 去恐怖谷(不对称/变异/反应延迟,同 naturalness)/ Naturalness</h2>
+  <div class="mixrow">
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer"
+      title="开:左右成对面部通道乘 asymmetry_pair 微差增益对(±8% 内,和守恒:一侧多一侧少);关(默认):增益恒 1,现状零改变">
+      <input type="checkbox" id="natAsymOn">左右不对称</label>
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer"
+      title="开:点击情绪预设/扩展状态延迟 reaction_delay(seed) 秒再真正触发(类人 120–350ms);关(默认):瞬时触发,现状零改变">
+      <input type="checkbox" id="natDelayOn">反应延迟</label>
+    <span>seed=<b id="natSeedV">1</b></span>
+    <button class="eb" id="btnNatSeed" title="换种子换一版(FNV-1a 确定性:同种子完全可复现,便于单测与录制回放)">🎲 换一版</button></div>
+  <div class="note" id="natAsymTxt" style="color:var(--teal)">不对称:关(左右增益恒 (1.0000, 1.0000),现状零改变)</div>
+  <div class="note" id="natDelayTxt">反应延迟:关(点预设瞬时触发)</div>
+  <div class="telebox" id="natVary">—</div>
+  <div class="mixrow">
+    <label style="display:flex;align-items:center;gap:4px;cursor:pointer"
+      title="开:点击 6 基础情绪预设或 10 扩展状态时按 hash01('variant',情绪,自增序号) 确定性选档(标准 0.5/含蓄 0.3/强化 0.2),以变体 AU 表替代预设走同一包络×强度×耦合×限速通道(强度滑杆语义不变);关(默认):恒用预设标准表,现状零改变">
+      <input type="checkbox" id="varOn">表情变体</label>
+    <span>序号=<b id="varSeqV">0</b></span></div>
+  <div class="note" id="varTxt">表情变体:关(点情绪预设/扩展状态恒用标准表,现状零改变)</div>
+  <p class="note">反"机械完美"三件套,同 bionic_expression/reference/naturalness.py(FNV-1a 确定性哈希,JS 同式镜像,
+   自然度 3 枚金标已入 selfCheck):①完美左右对称→asymmetry_pair 左右微差增益对(±8%,和恒为 2 只重分配);
+   ②机械精确重复→vary_keyframes 关键帧时刻 ±6%/幅度 ±4% 确定性变异(上表对照,换种子换一版、同种子可复现);
+   ③零反应延迟→reaction_delay 类人 120–350ms。接入现状(如实):反应延迟与包络变异已接入 C++ 表情引擎
+   (natural_react / natural_vary 参数,默认关=行为逐位一致;kNatural 三值经 check_alignment 与 C++ 逐值锁定;
+   变异另已接入臂侧手势 vary_keyframes+clamp_pose,单测锁定,上表对照仅前后演示、不接本页管线);
+   左右不对称则因 20 路 MVP 每 AU 双侧联动、无左右独立硬件通道,仅在渲染层演示——增益乘在 AU→ARKit 左右
+   blendshape 扇出点,眨眼事件通道除外(wink 单眼硬件不可做,同上方微表情注明),硬件前提归 30 DOF 形态。
+   诚实边界:阈值为演示层工程值(非动捕统计标定);只建模强度不对称,未建模真人常见的时序不对称
+   (单侧先启动,留后续);反应延迟只作用于手动点击情绪预设/扩展状态(对话状态机/剧本通道未接,
+   防双重延迟),急停立即清除 pending 延迟。</p>
+  <p class="note">表情变体="永不重复"在表情维度的对应物(真人同一情绪每次表情略有不同,归自然度主题),同
+   bionic_expression/reference/expression_variants.py:6 基础情绪 + 10 扩展状态 × 标准/含蓄/强化
+   三档 AU 表(standard 逐值=PRESETS/EXTENDED_PRESETS,单一真值不漂移),
+   VARIANT_WEIGHTS=(0.5, 0.3, 0.2) 分档
+   u&lt;0.5 标准 / u&lt;0.8 含蓄 / 其余强化,u=hash01('variant', 情绪, 自增序号) 确定性可复现;
+   开启后点情绪预设/扩展状态按变体档触发,走同一 applyEmotionAU 包络×强度×耦合×限速通道
+   (强度滑杆语义不变),变体金标已入 selfCheck(含扩展态 1 枚)。neutral 无变体;复合/自定义/对话/剧本
+   通道不经此入口,不受影响。诚实边界:变体表为演示层设计值(FACS 文献口径的工程化取值,非动捕统计);
+   C++ 引擎 natural_variant 参数已同表接入(默认关=行为逐位一致)。</p>
+  <h2>双目视觉(预设场景模拟,同 stereo_vision)/ Stereo vision</h2>
+  <div class="row" id="svScenes"></div>
+  <div class="svEyes">
+    <canvas id="svL" class="svcv" width="200" height="120"></canvas>
+    <canvas id="svR" class="svcv" width="200" height="120"></canvas></div>
+  <div class="note" id="svRead" style="color:var(--teal)">dist=— m · disparity=—px · vergence=—° ·(z=f·B/d 同式)</div>
+  <div class="note" id="svST">就绪:点场景按钮播放(targetAt 线性插值轨迹 · eventsBetween (t0,t1] 逐帧派发)。</div>
+  <div class="telebox" id="svLog">—</div>
+  <p class="note">双目几何/事件反应/场景同 bionic_perception/stereo_vision.py(JS 同式镜像,3 枚金标已入 selfCheck):
+   视差 d=f·B/z(基线 B=58mm 拟人瞳距,f=640px 内参示例)、注视会聚角 2·atan(B/2/z)、左右眼投影
+   x=W/2+f·tan(bearing)∓d/2——左右图中目标 x 恰差一个视差,近大远小+视差随距离变化=双目深度感;
+   事件反应强度按距离调制 ×clamp(1.2/z, 0.6, 1.5) 后钳 [0,1]。事件触发走既有情绪通道(基础态 applyEmotion /
+   扩展态 EXT_PRESETS,同一包络×强度×耦合×限速;尊重急停/hold 门禁;直连不经自然度反应延迟,防双重延迟,
+   同对话状态机/剧本口径)。注视联动为演示层映射(已注明):眼球偏航激活=bearing/30 钳 [-1,1](驱动 3D 眼骨,
+   id15/16 不在台面)、颈 NECK_YAW 目标小幅跟随 bearing×0.6°(经既有限速管线)。darkness 事件期间画面调暗。
+   场景播完自动停,播放中点新场景即抢占;急停停止播放并清画面。
+   诚实边界:无真双目硬件,场景为脚本化预设——事件字符串+距离/方位就是与后续视觉模型(VLM/检测器)的
+   接口契约,模型接入后输出同一格式即无缝替换;内参/基线为演示层设计值(打样后标定);注视映射系数为演示层。</p>
+  <h2>微表情(L1 快事件,叠加在当前情绪上)/ Micro-expressions</h2>
+  <div class="row" id="microRow"></div>
+  <div class="note" id="microAutoTxt" style="color:var(--teal)">自发微表情:等待空闲…</div>
+  <p class="note">短时序经 L1 层 ASD 快包络(攻/释 ≤0.12/0.2s)叠加在当前情绪上,可连点(同 AU 取大),
+   被急停/切换行为打断。叹气=单次大幅呼吸(NECK_PITCH 实际角叠加 ~1.6° 半正弦)+AU15/AU17。
+   事件库/包络/空闲调度已真值化:同 reference/micro_expressions.py(check_alignment 锁定),
+   并已接 C++ 表情引擎 natural_micro 参数(默认关=行为逐位一致)。**自发微表情**:拟真微动
+   开关开启且空闲(无活跃情绪/不说话)时,按确定性泊松间隔(均值 9s/下限 3s)从空闲池
+   自动触发——同引擎调度公式(FNV 序号驱动,可复现)。
+   诚实边界:wink 单眼眨无法模拟——AU_BLINK 为单通道双眼联动(真机同款约束);
+   叹气呼吸叠加为页面演示层(引擎只接 AU 分量)。</p>
+  <details class="fold" id="layerSec">
+    <summary>🧬 分层混合 L0-L3(实时堆叠图 · 仲裁同 arbiter 参考实现)</summary>
+    <div class="lmute" id="lmuteRow"></div>
+    <canvas id="layerC" width="380" height="190"></canvas>
+    <div class="note" id="arbInfo">—</div>
+    <div class="note">堆叠条=各层对通道的归一化激活贡献(仅正向显示;颈俯仰取绝对值):
+     基座=滑杆手动 / L0 情绪(含复合与包络)/ L1 行为微表情 / L2 口型 / L3 眨眼 / idle 呼吸。
+     仲裁增益与状态机同 arbiter.py 参考实现(说话>情绪>空闲;idle 快出 0.12s/慢入 1.2s,情绪保持 0.5s,已锁定):
+     情绪或说话活跃时 idle 层(呼吸/眼神游走)按增益淡出,回到安静后缓慢淡入。mute 为演示工具,只影响本页合成。</div>
+  </details>
+  <h2>颈部动作(预置轨迹,经限速播放)/ Neck moves</h2>
+  <div class="row" id="neckRow"></div>
+  <h2>安全控制 · 0xC3 控制帧(急停/hold 语义同固件,模拟)/ Safety</h2>
+  <div class="row">
+    <button class="eb danger" id="btnEstop">⛔ 急停</button>
+    <button class="eb" id="btnResume">恢复</button>
+    <button class="eb" id="btnCenter">回中</button>
+  </div>
+  <h2>说话口型演示(viseme 15 键同后端 visemeMap)/ Talk demo</h2>
+  <div class="row"><button class="eb" id="btnTalk">🎤 说话演示</button></div>
+  <p class="note">台词「你好,我是茄子X1,很高兴见到你。」——其拼音序列经后端 viseme.build_plan 时序规则
+   离线预排(0.12s/帧 · 标点停顿 0.18s · 断流 0.4s 老化清零,常量已锁定);播放时嘴部 5 通道
+   (AU17/20/23/25/26)按帧调度(到期生效、末帧胜出,同 VisemeScheduler),走同一 250°/s 限速管线并同步
+   3D,不改写滑杆目标值;急停或再次点击可中断。诚实边界:真机口型由 TTS 音素时间戳实时驱动,此处为预排时间表演示。</p>
+  <h2>动作录制 / 回放(用户目标值时间线)/ Record &amp; replay</h2>
+  <div class="row">
+    <button class="eb" id="btnRec">⏺ 录制</button>
+    <button class="eb" id="btnRecStop">⏹ 停止</button>
+    <button class="eb" id="btnPlay">▶ 回放</button>
+    <button class="eb" id="btnExp">导出 JSON</button>
+    <button class="eb" id="btnCopy">复制</button>
+    <button class="eb" id="btnImp">导入</button>
+  </div>
+  <div class="note" id="recInfo">未录制。录的是用户目标值变化(时间戳+通道+值);回放经同一限速管线成形;导出/导入用下方文本框复制粘贴,无下载。</div>
+  <textarea id="recIO" placeholder='{"ver":1,"base":{"AU12":90,...},"ev":[[t_ms,"通道名",角度],...]}' spellcheck="false"></textarea>
+  <details class="fold" id="cusSec">
+    <summary>🎨 自定义情绪(逐 AU 微调 · 演示层,localStorage)</summary>
+    <div class="mixrow">起点 <select id="cusBase"></select>
+      <button class="eb" id="btnCusLoad">载入到滑杆</button>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="cusLive" checked>实时预览</label></div>
+    <div id="cusSliders"></div>
+    <div class="mixrow">名称 <input type="text" id="cusName" placeholder="如 得意" style="flex:0 1 110px">
+      <button class="eb" id="btnCusSave">💾 保存</button>
+      <button class="eb" id="btnCusExp">导出 JSON</button>
+      <button class="eb" id="btnCusImp">导入</button></div>
+    <textarea id="cusIO" placeholder='导入格式(三选一):{"名称":{"AU12":0.9,...},...} 多条 / {"AU12":0.9,...} 单条(名称取上方输入框)/ "joy:0.6+surprise:0.4" spec 字符串(经 mix_spec 转 AU,名称取输入框)' spellcheck="false"></textarea>
+    <div class="note" id="cusInfo">从 7 预设任选起点 → 逐 AU 权重(0-1)微调 → 预览走同一包络/强度/耦合/限速管线 →
+     命名保存(仅存浏览器 localStorage,演示层)。保存后按钮出现在上方预设区(点 × 删除)。
+     导出/导入用文本框复制粘贴,无下载;导入兼容 {AU:权重} 字典与 emotion_mix spec 字符串(格式见占位提示)。
+     诚实边界:自定义权重未经真机验证,PRESETS 真值不动,自定义仅存在演示层,需经真机标定验证。</div>
+  </details>
+  <details class="fold" id="scriptSec">
+    <summary>🎬 情绪剧本(状态序列时间轴 · 数据与派发口径已锁定)</summary>
+    <div class="mixrow">预置 <select id="scSel"></select>
+      <button class="eb" id="btnScLoad">载入</button>
+      <button class="eb" id="btnScPlay">▶ 播放</button>
+      <button class="eb" id="btnScStop">⏹ 停止</button></div>
+    <div class="note" id="scST" style="color:var(--teal)">就绪:选预置剧本点"载入",或直接编辑下方 JSON 后播放。</div>
+    <textarea id="scIO" spellcheck="false" placeholder='[{"t":0,"action":{"type":"emotion","name":"joy"}},...]'></textarea>
+    <p class="note">剧本 = [{t 秒, action:{type:'emotion'|'behavior'|'micro'|'talk'|'neck'|'arousal'|'doze',…}}]
+     时间轴,播放时按 t 依次派发到既有管线:emotion(name=预设/扩展/spec 字符串,或 au 字典 + 可选
+     intensity)经包络×强度×耦合;behavior/micro 走 L1;talk 走 viseme 调度;neck 触发预置轨迹;
+     arousal{to,over} 渐变清醒度;doze 触发一次打盹点头。JSON 可改可复制(无下载)。
+     预置时间轴数据、条目清洗排序与游标派发口径同 emotion_script.py(check_alignment 锁定);
+     动作执行落在页面既有管线,属演示层联调。急停或任何面板手动操作即打断,进度见上方状态行。</p>
+  </details>
+  <details class="fold" id="teleSec">
+    <summary>📡 遥测 0x5A / 配置帧 0xB7(模拟)</summary>
+    <div class="note">0x5A v2 遥测帧(9 metric,1Hz):last_seq/急停计数(计入 error_count)/渲染帧间隔
+     (作 comm_latency_ms)取自页面运行态,温度/电池为缓变模拟量,frame_gap_count 恒 0(本模拟器数据流
+     不丢帧)——遥测值为模拟器状态,非真硬件。</div>
+    <div class="telebox" id="teleHex">—(展开后 1Hz 刷新)</div>
+    <div class="teledec" id="teleDec">—</div>
+    <div class="row" style="margin-top:8px"><button class="eb" id="btnCfg">0xB7 配置同步帧预览</button></div>
+    <div class="telebox" id="cfgHex">—</div>
+    <div class="teledec" id="cfgMeta">—</div>
+  </details>
+  <details class="fold" id="healthSec">
+    <summary>🩺 遥测健康分析(滑窗趋势/堵转/疲劳/评分,同 telemetry_health)</summary>
+    <div class="mixrow" style="margin-top:6px"><span>综合评分</span><b id="hScore" style="font-size:16px">—</b>
+      <span class="hgrade" id="hGrade">—</span>
+      <button class="eb" id="btnInjTemp" title="向模拟遥测流注入 +2.5℃/s×15s 温度爬升(演示层注入,非真故障),观察 WARN/趋势扣分">注入:温度爬升(演示)</button>
+      <button class="eb" id="btnInjStall" title="注入一段 残差 8°+电流 0.52A 的堵转样本(4s,演示层注入),持续 >0.5s 后判堵转">注入:堵转样本(演示)</button></div>
+    <div class="hstat" id="hMetrics">—(展开后随 1Hz 遥测流刷新)</div>
+    <div class="note" id="hAdvice">—</div>
+    <p class="note">评分=100 逐项扣分(WARN −15 / CRIT −40 / 温度趋势上行&gt;0.2℃/s −10 / 疲劳按维护阈值占比 ≤−30),
+     评级 ≥85 A / ≥70 B / ≥50 C / 其余 D;堵转=残差&gt;5° 且电流≥0.48A(0.6A×80%)且持续&gt;0.5s 三条同判;
+     疲劳权重 2^((T−40)/10)(温度每高 10℃ 磨损 ×2)——常量/公式同 telemetry_health,已入 check_alignment 锁定。
+     诚实边界:全部阈值/权重为演示层工程估计(未接真硬件标定);数据取自本页模拟遥测流(1Hz 滑窗 10s);
+     servo_current_a 不在 0x5A 帧 9 项内,为驱动侧采样口径的演示合成量;"注入"按钮为演示层异常注入,非真故障。</p>
+  </details>
+  <div id="sliders"></div>
+  <p class="note">· 眼球 2 路(id15 AU_EYE_YAW / id16 AU_EYE_PITCH)不在本台面,由注视子系统驱动。<br>
+     · 标定为示例值(servo_calibration.yaml 同源),实物打样后逐通道实测替换。<br>
+     · 3D 仅表现正向激活(a&lt;0 的反向行程在 blendshape 端截为 0),颈部三路按角度直转头部节点。<br>
+     · 急停/恢复为 0xC3 控制帧全语义模拟(同 firmware/servo_controller.c):急停冻结位姿、忽略指令;<br>
+     &nbsp;&nbsp;恢复后进入 hold,直到第一个新数据帧(拖滑杆/垫/点预设)才恢复跟随。未接真硬件。<br>
+     · 拟真微动(顶部开关,默认开):呼吸=NECK_PITCH 的渲染/下发实际角上叠加 ~0.6°、4s 正弦+微噪,
+     不动目标值,急停/hold 时静止;<br>
+     &nbsp;&nbsp;自动眨眼=blink_saccade 同参数(间隔指数分布均值 4s/下限 1.5s/双连眨 12%,已锁定)事件式驱动
+     AU_BLINK,走同一 250°/s 限速管线——85° 行程闭合约 0.34s,接近真实眨眼 0.3–0.4s
+     (仅默认 rate_limit 轨迹下成立;切 trapezoid/scurve 后更平缓、行程更慢。
+     真机事件通道按 0.06/0.12s 闭/睁曲线更快,如实注明);<br>
+     &nbsp;&nbsp;眼神微游走=saccade 主序(VMAX/A0/PEAK_FACTOR 同后端,已锁定)+微扫视抖动,驱动头模
+     LeftEye/RightEye 骨骼——眼球属 id15/16 注视子系统,不在 18 路台面,此处仅 3D 演示层
+     (facecap 回退源无眼骨则自动跳过)。</p>
+</div>
+
+<div id="bottom">
+  <div id="frame">
+    <h3>下发帧预览 · 协议 v2 数据帧(SOF=0xA5,CRC16-CCITT)/ Frame preview</h3>
+    <div id="hex">—</div>
+    <div id="fmeta">—</div>
+  </div>
+  <div id="scope">
+    <h3>限速示波器 · <b id="scCh">—</b> <span class="sub2">目标=虚线 实际=实线 · 近 5s</span></h3>
+    <div id="profRow"><span class="sub2">轨迹</span>
+      <button class="eb sm on" id="pf_rate_limit" title="纯限速(现状):与固件 servo_control_tick 逐 tick 同义,250°/s">rate_limit</button>
+      <button class="eb sm" id="pf_trapezoid" title="梯形:限加速度 2500°/s² + 限速 250°/s,减速距离 v²/2a 提前减速(加速度上限为演示层工程值,未接真硬件)">trapezoid</button>
+      <button class="eb sm" id="pf_scurve" title="S 曲线:梯形基础上再限 jerk 50000°/s³,加速度连续(jerk 上限为演示层工程值,未接真硬件)">scurve</button></div>
+    <canvas id="scc"></canvas>
+  </div>
+  <div id="stat">
+    <h3>状态 / Status</h3>
+    <div>限速 <b id="sDps">250°/s</b> · max_step=<b id="sStep">0.50°/tick</b>@<b id="sHz">500Hz</b></div>
+    <div>seq <b id="sSeq">0</b> · 运动中 <b id="sMov">0</b>/18 路 · 渲染 <b id="sFps">—</b> fps</div>
+    <div>链路 <b id="sLink">数据流</b> · 轨迹 <b id="sProf">rate_limit</b></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.js",
+  "three/addons/": "./vendor/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { addRealismLights, setupRealismRenderer, enhanceRealism } from './realism.js';   // 拟真化共享模块(三页同源)
+
+/* ===== 后端对齐常量(check_alignment.py 期望清单锁定,勿手改) ===== */
+// 通道标定:同 bionic_motion_bridge/reference/au_servo_map.py DEFAULT_CHANNELS(20 通道)
+const CH={AU1:{id:0,neutral:90,gain:25,min:60,max:120},AU2:{id:1,neutral:90,gain:25,min:60,max:120},
+ AU4:{id:2,neutral:90,gain:-30,min:55,max:120},AU5:{id:3,neutral:90,gain:30,min:55,max:125},
+ AU6:{id:4,neutral:90,gain:20,min:70,max:115},AU7:{id:5,neutral:90,gain:20,min:70,max:115},
+ AU9:{id:6,neutral:90,gain:25,min:65,max:120},AU12:{id:7,neutral:90,gain:35,min:55,max:130},
+ AU15:{id:8,neutral:90,gain:-35,min:50,max:125},AU17:{id:9,neutral:90,gain:20,min:70,max:115},
+ AU20:{id:10,neutral:90,gain:30,min:60,max:125},AU23:{id:11,neutral:90,gain:20,min:70,max:115},
+ AU25:{id:12,neutral:90,gain:25,min:65,max:120},AU26:{id:13,neutral:90,gain:40,min:50,max:135},
+ AU_BLINK:{id:14,neutral:10,gain:80,min:10,max:95},
+ AU_EYE_YAW:{id:15,neutral:90,gain:30,min:60,max:120},AU_EYE_PITCH:{id:16,neutral:90,gain:25,min:65,max:115},
+ NECK_YAW:{id:17,neutral:90,gain:45,min:45,max:135},NECK_PITCH:{id:18,neutral:90,gain:30,min:60,max:120},
+ NECK_ROLL:{id:19,neutral:90,gain:25,min:65,max:115}};
+// 情绪预设:同 bionic_expression/reference/emotion_mix.py PRESETS(= C++ emotionPresets())
+const PRESETS={neutral:{},joy:{AU6:0.7,AU12:0.9},sadness:{AU1:0.6,AU4:0.5,AU15:0.7},
+ anger:{AU4:0.8,AU5:0.5,AU7:0.6,AU23:0.6},surprise:{AU1:0.8,AU2:0.8,AU5:0.7,AU26:0.6},
+ fear:{AU1:0.6,AU2:0.5,AU4:0.4,AU5:0.7,AU20:0.6,AU26:0.4},disgust:{AU9:0.8,AU15:0.5,AU17:0.4}};
+// 扩展情绪状态库(10 个微妙/复合状态):同 emotion_mix.py EXTENDED_PRESETS(后端真值+单测锁定)
+const EXT_PRESETS={sleepy:{AU4:0.2,AU15:0.15,AU17:0.15},confused:{AU1:0.4,AU4:0.5,AU17:0.3},
+ embarrassed:{AU12:0.3,AU6:0.3,AU15:0.2,AU4:0.2},focused:{AU4:0.4,AU7:0.5,AU23:0.3},
+ bored:{AU15:0.3,AU17:0.4,AU4:0.2},pained:{AU4:0.7,AU6:0.5,AU7:0.6,AU9:0.3,AU20:0.4},
+ proud:{AU12:0.5,AU6:0.3,AU5:0.2},shy:{AU12:0.4,AU6:0.4,AU15:0.15},
+ disdain:{AU9:0.5,AU15:0.4,AU4:0.3},terrified:{AU1:0.8,AU2:0.7,AU5:0.9,AU20:0.7,AU26:0.5}};
+// AU→ARKit-52:同 bionic_expression/config/arkit_to_au.yaml 的 au_to_arkit 段
+const AU2BS={AU1:{browInnerUp:1.0},AU2:{browOuterUpLeft:1.0,browOuterUpRight:1.0},
+ AU4:{browDownLeft:1.0,browDownRight:1.0},AU5:{eyeWideLeft:1.0,eyeWideRight:1.0},
+ AU6:{cheekSquintLeft:1.0,cheekSquintRight:1.0},AU7:{eyeSquintLeft:1.0,eyeSquintRight:1.0},
+ AU9:{noseSneerLeft:1.0,noseSneerRight:1.0},AU12:{mouthSmileLeft:1.0,mouthSmileRight:1.0},
+ AU15:{mouthFrownLeft:1.0,mouthFrownRight:1.0},AU17:{mouthShrugLower:1.0},
+ AU20:{mouthStretchLeft:1.0,mouthStretchRight:1.0},AU23:{mouthPressLeft:1.0,mouthPressRight:1.0},
+ AU25:{jawOpen:0.2},AU26:{jawOpen:1.0},AU_BLINK:{eyeBlinkLeft:1.0,eyeBlinkRight:1.0}};
+// 线协议/限速:同 servo_protocol.py(SOF/VER2/百分度/CRC16-CCITT)与 servo_safety.py(250°/s、CTRL_HZ=500)
+const PROTO={SOF:0xA5,VER2:2,ANGLE_SCALE:100,ANGLE_MAX_CDEG:18000,MAX_CHANNELS:20,
+ CRC16_POLY:0x1021,CRC16_INIT:0xFFFF,DEFAULT_MAX_DPS:250,CTRL_HZ:500};
+// 控制帧(软急停):同 servo_protocol.py CTRL_SOF/CMD_ESTOP(0xC3 帧,ARG=1 冻结/0 释放)
+const CTRL={CTRL_SOF:0xC3,CMD_ESTOP:0x01};
+// 眨眼参数:同 bionic_expression/reference/blink_saccade.py(CLOSE/OPEN 常量 + gen_blink_schedule 默认参数)
+const BLINK={CLOSE:0.06,OPEN:0.12,MEAN_INTERVAL:4.0,MIN_INTERVAL:1.5,DOUBLE_PROB:0.12};
+// 扫视主序:同 bionic_expression/reference/saccade.py(峰速饱和/时长反解常量)
+const SACCADE={VMAX:600,A0:7.0,PEAK_FACTOR:1.875};
+// 情绪包络:同 bionic_expression/reference/emotion_envelope.py envelope_gain 默认(attack/decay;sustain=hold)
+const ENV={ATTACK:0.3,DECAY:0.6};
+// 口型 15 键:同 viseme_schedule.VISEME_AU(= C++ 表情引擎 visemeMap(),经门禁与 C++ 逐值核对)
+const VAU={sil:{},PP:{AU23:0.5},FF:{AU25:0.3,AU17:0.2},TH:{AU25:0.4,AU26:0.2},DD:{AU25:0.4,AU26:0.3},
+ kk:{AU25:0.3,AU26:0.3},CH:{AU25:0.4,AU20:0.3},SS:{AU25:0.3,AU20:0.4},nn:{AU25:0.3},RR:{AU25:0.4,AU20:0.2},
+ aa:{AU26:0.9,AU25:0.6},E:{AU26:0.5,AU20:0.5,AU25:0.5},I:{AU20:0.6,AU25:0.4},O:{AU26:0.6,AU25:0.5},
+ U:{AU26:0.3,AU23:0.3}};
+// 口型时序常量:同 bionic_cognition/viseme.py(帧距/停顿)与 viseme_schedule.STALE_S(断流老化)
+const VTIME={DEFAULT_FRAME_S:0.12,PUNCT_PAUSE_S:0.18,PAUSE_SENT_S:0.25,STALE_S:0.4};
+// 遥测上行协议:同 telemetry_protocol.py(SOF=0x5A 与下行 0xA5 对称反向;metric 表 9 项含缩放)
+const TELEP={SOF:0x5A,VER2:2,MAX_FIELDS:20};
+const TMETRICS={0:['servo_temp_c',10],1:['cpu_temp_c',10],2:['skin_temp_c',10],3:['battery_pct',10],
+ 4:['battery_v',100],5:['error_count',1],6:['comm_latency_ms',1],7:['last_seq',1],8:['frame_gap_count',1]};
+// 配置同步帧 SOF:同 servo_protocol.py CFG_SOF(0xB7,上电下发 neutral/min/max/max_dps)
+const CFG={CFG_SOF:0xB7};
+// 协同联动/拮抗互锁表:同 expression_coupling.py SYNERGIES/ANTAGONISTS(= C++ kSynergies/kAntagonists)
+const SYNERGIES=[["AU12","AU6",0.6],["AU26","AU25",0.8],["AU5","AU1",0.4],["AU5","AU2",0.4]];
+const ANTAGONISTS=[[["AU1","AU2"],["AU4"]],[["AU12"],["AU15"]],[["AU5"],["AU7"]]];
+// 行为仲裁常量:同 arbiter.BehaviorArbiter 默认参数(说话>情绪>空闲,idle 快出慢入+情绪保持)
+const ARB={SPEAK_THR:0.08,EMO_THR:0.10,IDLE_IN_TAU:1.2,FAST_TAU:0.12,EMO_HOLD:0.5};
+// 倾听反馈点头常量:同 backchannel.Backchannel 默认参数(触发间隔/单次时长/幅度)
+const BC={INTERVAL:2.5,NOD_DUR:0.5,NOD_AMP:0.4};
+// 告别动作常量:同 farewell_gesture.FarewellGesture 默认参数(时长/鞠躬幅/挥手幅/挥手周数)
+const FAREWELL={DURATION:1.6,BOW_AMP:0.6,WAVE_AMP:0.8,WAVE_CYCLES:3.0};
+// 行为模式 AU/时序:同 interaction_expression.InteractionExpression(倾听眉/思考眉+眼/说话微笑)
+const BEHV={NOD_INTERVAL:1.8,LISTEN_AU1:0.12,THINK_AU1:0.30,THINK_AU2:0.20,
+ THINK_EYE_PITCH:-0.45,THINK_YAW_AMP:0.25,THINK_YAW_FREQ:1.6,SPEAK_AU12:0.20};
+// 空闲呼吸频率:同 idle_behavior.breathing 默认 freq(0.25Hz,即 4s 周期)
+const IDLE={BREATH_FREQ:0.25};
+// —— 心境层常量:同 bionic_expression/reference/mood_dynamics.py(check_alignment 锁定)——
+// 基础情绪 → PAD 增量方向(单位事件强度下的驱动向量;neutral 零向量=纯衰减)
+const MOOD_PAD={joy:{pleasure:0.8,arousal_bias:0.3,dominance:0.2},
+ sadness:{pleasure:-0.6,arousal_bias:-0.3,dominance:-0.3},
+ anger:{pleasure:-0.5,arousal_bias:0.6,dominance:0.4},
+ surprise:{pleasure:0.1,arousal_bias:0.7,dominance:-0.1},
+ fear:{pleasure:-0.6,arousal_bias:0.6,dominance:-0.5},
+ disgust:{pleasure:-0.5,arousal_bias:0.1,dominance:0.1},
+ neutral:{pleasure:0.0,arousal_bias:0.0,dominance:0.0}};
+// 扩展十态 → PAD(同 EXTENDED_EMOTION_PAD,check_alignment 锁定;落地后扩展态也驱动心境)
+const MOOD_PAD_EXT={sleepy:{pleasure:-0.1,arousal_bias:-0.8,dominance:-0.2},
+ confused:{pleasure:-0.2,arousal_bias:0.3,dominance:-0.3},
+ embarrassed:{pleasure:-0.3,arousal_bias:0.4,dominance:-0.4},
+ focused:{pleasure:0.1,arousal_bias:0.4,dominance:0.3},
+ bored:{pleasure:-0.3,arousal_bias:-0.5,dominance:-0.1},
+ pained:{pleasure:-0.7,arousal_bias:0.5,dominance:-0.3},
+ proud:{pleasure:0.6,arousal_bias:0.3,dominance:0.6},
+ shy:{pleasure:-0.1,arousal_bias:0.2,dominance:-0.4},
+ disdain:{pleasure:-0.4,arousal_bias:0.1,dominance:0.4},
+ terrified:{pleasure:-0.8,arousal_bias:0.9,dominance:-0.6}};
+// 人格基线偏置(warm 热情/calm 沉稳/lively 俏皮;演示层参数,非实测标定)
+const PERSONA={warm:{pleasure:0.3,arousal_bias:0.1,dominance:0.0},
+ calm:{pleasure:0.1,arousal_bias:-0.2,dominance:0.1},
+ lively:{pleasure:0.2,arousal_bias:0.3,dominance:-0.1}};
+// 清醒度生理轴常量(同 arousal_physiology.py,check_alignment 锁定;此前为演示层不锁定)
+const AROUSAL_CONST={LID_CLOSE_MAX:0.55,BLINK_SCALE_MIN:0.4,BREATH_AMP_SLOPE:0.6,
+ BREATH_PERIOD_SLOPE:0.5,NECK_DROOP_DEG:4.0,DROOP_TAU_S:0.5,DOZE_THRESHOLD:0.2,
+ DOZE_MIN_S:8.0,DOZE_SPAN_S:7.0,DOZE_DIP_DEG:8.0,DOZE_FALL_S:1.4,DOZE_RISE_S:0.25};
+// 心境时间常数 τ + 调制公式斜率(强度增益/呼吸/眨眼/扫视,线性+钳位,同 mood_to_modulation)
+const MOOD_MOD={TAU_MOOD:60.0,GAIN_PLEASURE_SLOPE:0.3,BREATH_AROUSAL_SLOPE:0.3,
+ BLINK_AROUSAL_SLOPE:0.4,SACCADE_AROUSAL_SLOPE:0.5};
+// —— 对话驱动状态迁移常量:同 bionic_cognition/dialogue_affect.py(check_alignment 锁定)——
+// 迟滞状态机参数:最短驻留/触发阈值/neutral 超时/置信度衰减速率与上限
+const DAFF_CONST={MIN_DWELL_S:2.0,TRIGGER_THRESHOLD:1.0,NEUTRAL_TIMEOUT_S:30.0,
+ CONFIDENCE_DECAY_PER_S:0.2,CONFIDENCE_MAX:2.0};
+// 事件 → [目标状态, 置信度增量, 目标强度](键序即 DIALOGUE_EVENTS 扫描/输出顺序)
+const DAFF_EVENTS={praised:['proud',0.6,0.8],criticized:['embarrassed',0.6,0.7],
+ not_understood:['confused',0.5,0.6],greeting:['joy',0.6,0.6],farewell:['sadness',0.4,0.5],
+ question_hard:['focused',0.6,0.8],joke:['joy',0.7,0.9],waiting_long:['bored',0.4,0.5],
+ task_done:['proud',0.5,0.7],interrupted:['surprise',0.7,0.6],silence:['sleepy',0.3,0.4]};
+// 事件关键词表(演示层启发式;线上由 LLM 情感标注替代/融合)
+const DAFF_KW={praised:['厉害','真棒','好聪明','太强了','干得漂亮'],
+ criticized:['真笨','太差了','好烂','批评','太让我失望'],
+ not_understood:['没听懂','听不懂','什么意思','再说一遍','没明白'],
+ greeting:['你好','您好','早上好','嗨','哈喽','hello'],
+ farewell:['再见','拜拜','晚安','回头见','bye'],
+ question_hard:['考考你','难题','脑筋急转弯','推导一下'],
+ joke:['哈哈','笑死','太逗了','讲个笑话'],
+ waiting_long:['等了好久','怎么这么慢','快点啊','等半天'],
+ task_done:['完成了','搞定了','做完了','大功告成'],
+ interrupted:['别说了','停一下','先打住','让我说'],
+ silence:['好安静','冷场','没人说话']};
+// —— 遥测健康常量:同 bionic_motion_bridge/reference/telemetry_health.py(check_alignment 锁定)——
+// metric 三级阈值(逐行同式镜像:电流 = 额定 0.6A × 70%/90%,电压按偏离标称 12.0V 比例分级)
+const HEALTH_THR={servo_temp_c:{kind:'high',warn:60.0,crit:75.0,label:'舵机温度',unit:'℃'},
+ servo_current_a:{kind:'high',warn:0.6*0.70,crit:0.6*0.90,label:'舵机电流',unit:'A'},
+ battery_v:{kind:'band',nominal:12.0,warn:0.05,crit:0.10,label:'电池电压',unit:'V'}};
+// 滑窗/堵转/疲劳/评分/评级常量(堵转电流 = 额定 0.6A × 80%,逐行同式镜像)
+const HEALTH_SCORE={WINDOW_S:10.0,STALL_RESIDUAL_DEG:5.0,STALL_CURRENT_A:0.6*0.80,STALL_DUR_S:0.5,
+ FATIGUE_REF_TEMP_C:40.0,FATIGUE_TEMP_DOUBLE_C:10.0,FATIGUE_SERVICE_THRESHOLD:3600.0,
+ WARN_PENALTY:15.0,CRIT_PENALTY:40.0,TREND_PENALTY:10.0,TEMP_TREND_WARN_C_PER_S:0.2,
+ FATIGUE_PENALTY_MAX:30.0,GRADE_A_MIN:85.0,GRADE_B_MIN:70.0,GRADE_C_MIN:50.0};
+// —— 轨迹整形常量:同 bionic_motion_bridge/reference/trajectory_shaping.py(check_alignment 锁定)——
+// MAX_RATE/CTRL_HZ 与固件同值(每 tick 最大步长 0.5° 不变量);ACCEL/JERK 为演示层工程值(未接真硬件)
+const TRAJ_CONST={MAX_RATE_DPS:250.0,CTRL_HZ:500,MAX_ACCEL_DPS2:2500.0,MAX_JERK_DPS3:50000.0,
+ ARRIVE_POS_EPS:1e-4,ARRIVE_VEL_EPS:0.02};
+// —— 自然度层常量:同 bionic_expression/reference/naturalness.py(去恐怖谷三件套阈值)——
+// 不对称最大偏差 / 关键帧时刻抖动 / 幅度抖动 / 类人反应延迟上下限(演示层工程值,非动捕统计标定)
+const NATURAL={ASYM_MAX:0.08,VARY_TIME_FRAC:0.06,VARY_AMP_FRAC:0.04,REACT_MIN_S:0.12,REACT_MAX_S:0.35};
+// —— 表情变体库:同 bionic_expression/reference/expression_variants.py VARIANTS
+// (6 基础情绪 + 10 扩展态 × 标准/含蓄/强化)——standard 逐值 = PRESETS/EXT_PRESETS
+// (单一真值不漂移);变体表为演示层设计值(FACS 文献口径工程化取值,非动捕统计)
+const EXPR_VAR={
+ joy:{standard:{AU6:0.7,AU12:0.9},subtle:{AU6:0.4,AU12:0.5},
+  intense:{AU6:0.9,AU12:1.0,AU25:0.5,AU26:0.3}},
+ sadness:{standard:{AU1:0.6,AU4:0.5,AU15:0.7},subtle:{AU1:0.4,AU4:0.3,AU15:0.4},
+  intense:{AU1:0.8,AU4:0.6,AU15:0.9,AU17:0.3}},
+ anger:{standard:{AU4:0.8,AU5:0.5,AU7:0.6,AU23:0.6},subtle:{AU4:0.5,AU7:0.4,AU23:0.4},
+  intense:{AU4:1.0,AU5:0.7,AU7:0.8,AU9:0.3,AU23:0.7}},
+ surprise:{standard:{AU1:0.8,AU2:0.8,AU5:0.7,AU26:0.6},subtle:{AU1:0.5,AU2:0.5,AU5:0.4,AU26:0.3},
+  intense:{AU1:1.0,AU2:1.0,AU5:0.9,AU26:0.9}},
+ fear:{standard:{AU1:0.6,AU2:0.5,AU4:0.4,AU5:0.7,AU20:0.6,AU26:0.4},
+  subtle:{AU1:0.4,AU2:0.3,AU5:0.5,AU20:0.3},
+  intense:{AU1:0.7,AU2:0.6,AU4:0.5,AU5:0.9,AU20:0.8,AU26:0.6}},
+ disgust:{standard:{AU9:0.8,AU15:0.5,AU17:0.4},subtle:{AU9:0.5,AU15:0.3},
+  intense:{AU9:1.0,AU15:0.7,AU17:0.5,AU4:0.3,AU25:0.2}},
+ sleepy:{standard:{AU4:0.2,AU15:0.15,AU17:0.15},subtle:{AU4:0.1,AU17:0.1},
+  intense:{AU4:0.3,AU15:0.25,AU17:0.25,AU26:0.2}},
+ confused:{standard:{AU1:0.4,AU4:0.5,AU17:0.3},subtle:{AU1:0.25,AU4:0.3,AU17:0.15},
+  intense:{AU1:0.55,AU4:0.7,AU17:0.4,AU2:0.2}},
+ embarrassed:{standard:{AU12:0.3,AU6:0.3,AU15:0.2,AU4:0.2},subtle:{AU12:0.2,AU6:0.2,AU15:0.1},
+  intense:{AU12:0.4,AU6:0.45,AU15:0.3,AU4:0.3,AU7:0.2}},
+ focused:{standard:{AU4:0.4,AU7:0.5,AU23:0.3},subtle:{AU4:0.25,AU7:0.3,AU23:0.15},
+  intense:{AU4:0.55,AU7:0.7,AU23:0.45}},
+ bored:{standard:{AU15:0.3,AU17:0.4,AU4:0.2},subtle:{AU15:0.15,AU17:0.25},
+  intense:{AU15:0.4,AU17:0.55,AU4:0.3,AU26:0.15}},
+ pained:{standard:{AU4:0.7,AU6:0.5,AU7:0.6,AU9:0.3,AU20:0.4},
+  subtle:{AU4:0.45,AU6:0.3,AU7:0.4,AU20:0.2},
+  intense:{AU4:0.9,AU6:0.65,AU7:0.8,AU9:0.45,AU20:0.55,AU26:0.3}},
+ proud:{standard:{AU12:0.5,AU6:0.3,AU5:0.2},subtle:{AU12:0.3,AU6:0.2},
+  intense:{AU12:0.7,AU6:0.45,AU5:0.3,AU2:0.2}},
+ shy:{standard:{AU12:0.4,AU6:0.4,AU15:0.15},subtle:{AU12:0.25,AU6:0.25,AU15:0.1},
+  intense:{AU12:0.55,AU6:0.55,AU15:0.25,AU4:0.15}},
+ disdain:{standard:{AU9:0.5,AU15:0.4,AU4:0.3},subtle:{AU9:0.3,AU15:0.25},
+  intense:{AU9:0.7,AU15:0.55,AU4:0.45,AU17:0.2}},
+ terrified:{standard:{AU1:0.8,AU2:0.7,AU5:0.9,AU20:0.7,AU26:0.5},
+  subtle:{AU1:0.55,AU2:0.45,AU5:0.6,AU20:0.45,AU26:0.3},
+  intense:{AU1:0.95,AU2:0.85,AU5:1.0,AU20:0.85,AU26:0.75,AU4:0.3}}};
+// 三档权重(标准/含蓄/强化):u<0.5 标准 / u<0.8 含蓄 / 其余强化,同 VARIANT_WEIGHTS
+const VARIANT_WEIGHTS=[0.5,0.3,0.2];
+// —— 双目视觉几何/调制常量:同 bionic_perception/stereo_vision.py(演示层设计值,真机以标定为准)——
+// MIN_DEPTH_M 由公式 f·B/MAX_DISPARITY_PX 导出(见 STEREO_MIN_DEPTH_M),不入常量表
+const STEREO={BASELINE_M:0.058,FOCAL_PX:640.0,IMG_W_PX:640,MAX_DISPARITY_PX:128.0,
+ MAX_DEPTH_M:8.0,DIST_REF_M:1.2,DIST_GAIN_MIN:0.6,DIST_GAIN_MAX:1.5};
+// 视觉事件 → (情绪, 基准强度, 持续秒):同 stereo_vision.VISION_REACTIONS(事件字符串=与
+// 后续视觉模型(VLM/检测器)的接口契约;darkness/object_shown 用扩展态 sleepy/focused)
+const VISION_REACT={person_appear:['surprise',0.35,2.0],person_close:['joy',0.6,3.0],
+ person_leave:['sadness',0.3,2.5],smile_detected:['joy',0.8,3.0],wave_seen:['joy',0.7,3.0],
+ fast_approach:['fear',0.85,1.5],bright_flash:['surprise',0.9,1.0],darkness:['sleepy',0.5,4.0],
+ object_shown:['focused',0.6,3.0],unknown_object:['confused',0.45,2.5]};
+// 预设视觉场景库 [[t_s, 事件, {dist:米, bearing:度}], ...]:同 stereo_vision.VISION_SCENES
+// (目标轨迹=相邻事件点 dist/bearing 线性插值;事件在各自时刻派发)
+const VISION_SCENES={
+ visitor:[[0.0,'person_appear',{dist:3.5,bearing:25.0}],[3.0,'person_close',{dist:1.0,bearing:5.0}],
+  [6.5,'smile_detected',{dist:0.9,bearing:0.0}],[11.0,'person_leave',{dist:3.0,bearing:-20.0}]],
+ handoff:[[0.0,'person_close',{dist:1.2,bearing:-10.0}],[3.0,'object_shown',{dist:0.45,bearing:0.0}],
+  [7.0,'unknown_object',{dist:0.6,bearing:8.0}],[10.5,'person_leave',{dist:2.5,bearing:15.0}]],
+ startle:[[0.0,'person_appear',{dist:4.0,bearing:-30.0}],[2.5,'fast_approach',{dist:0.5,bearing:-5.0}],
+  [4.0,'bright_flash',{dist:0.5,bearing:0.0}],[7.0,'person_leave',{dist:3.5,bearing:25.0}]],
+ dusk:[[0.0,'darkness',{dist:5.0,bearing:0.0}],[4.5,'person_appear',{dist:2.5,bearing:-15.0}],
+  [8.0,'person_close',{dist:1.0,bearing:-3.0}]],
+ playful:[[0.0,'person_close',{dist:1.1,bearing:10.0}],[2.5,'wave_seen',{dist:1.0,bearing:5.0}],
+  [5.5,'smile_detected',{dist:0.9,bearing:0.0}],[9.0,'person_leave',{dist:2.8,bearing:-25.0}]]};
+
+/* ===== 表情纵深演示层参数(纯 UI,不锁定) ===== */
+// 预置复合按钮:spec 走 parse_emotion_spec 同式解析;权重为演示层自定(非后端真值)
+const MIX_PRESETS=[['😲 惊喜','joy:0.6+surprise:0.4'],['🙂 苦笑','joy:0.5+sadness:0.5'],
+ ['😤 悲愤','sadness:0.5+anger:0.6'],['😱 惊惧','surprise:0.5+fear:0.6']];  // 惊惧=复合;扩展态另有 terrified 惊恐
+const BEHV_DEMO_S=10;   // 倾听/思考演示自动停止时长 s(演示层;真机由对话 FSM 驱动)
+const NOD_SIGN=-1;      // 点头/鞠躬方向:本页颈部约定 + 为抬头,演示层取负让头向下
+// 扩展状态中文标签(演示层;键序与 EXT_PRESETS 对应,权重真值见上方锁定表)
+const EXT_LABEL=[['sleepy','😪 困倦'],['confused','🤨 疑惑'],['embarrassed','😳 尴尬'],
+ ['focused','🧐 专注'],['bored','😑 无聊'],['pained','😖 痛苦'],['proud','😏 得意'],
+ ['shy','☺️ 害羞'],['disdain','🙄 嫌弃'],['terrified','😱 惊恐']];
+// 微表情事件库(镜像自 reference/micro_expressions.py,check_alignment 锁定;
+// "_dur" 哨兵键承载时长秒,与 C++ kMicroEvents 同表结构;经 L1 快包络叠加,可连点、被急停/行为打断)
+const MICRO_AU_DUR={
+ brow:{AU1:0.6,AU2:0.6,_dur:0.5},
+ nose:{AU9:0.6,_dur:0.4},
+ pout:{AU15:0.5,_dur:0.5},
+ press:{AU23:0.6,_dur:0.6},
+ gasp:{AU5:0.5,AU26:0.4,_dur:0.5},
+ sigh:{AU15:0.2,AU17:0.3,_dur:1.2}};
+// 快包络攻/释上限 + 空闲自发调度(泊松均值/下限,同后端;经引擎 natural_micro 参数产品化)
+const MICRO_CONST={ATK_S:0.12,DEC_S:0.2,IDLE_MEAN_S:9.0,IDLE_MIN_S:3.0};
+const IDLE_MICRO_POOL=['brow','press','pout','sigh'];   // 空闲池(顺序参与 hash 选择,同后端)
+const SIGH_AMP=1.6;                               // 叹气单次呼吸幅度 °(页面演示层,引擎不接)
+// 按钮序+中文标签(页面专属)→ 组装为既有 [键,标签,AU,时长] 形态,消费代码零改动
+const MICRO_EVENTS=[['brow','🤨 挑眉'],['nose','😤 皱鼻'],['pout','😒 撇嘴'],
+ ['press','😐 抿嘴'],['gasp','😯 惊张口'],['sigh','💨 叹气']].map(([k,zh])=>{
+  const o=Object.assign({},MICRO_AU_DUR[k]);const d=o._dur;delete o._dur;return [k,zh,o,d];});
+const MICRO_ATK=MICRO_CONST.ATK_S,MICRO_DEC=MICRO_CONST.DEC_S;
+// 情绪剧本预置(时间轴数据同 emotion_script.py,check_alignment 锁定;
+// 动作执行落在页面既有管线属演示层):[{t 秒,action:{type,...}}],textarea 可改可复制
+const SC_CONST={MIN_RAMP_S:0.01};               // 清醒度渐变最短时长(秒,防除零,同 MIN_RAMP_OVER_S)
+const SCRIPTS={
+ '访客接待':[
+  {t:0,action:{type:'emotion',name:'neutral'}},
+  {t:0.5,action:{type:'neck',move:'抬头'}},
+  {t:0.5,action:{type:'emotion',au:{AU5:0.3},label:'注意'}},
+  {t:1.5,action:{type:'emotion',name:'joy'}},
+  {t:3,action:{type:'talk'}},
+  {t:9,action:{type:'behavior',mode:'farewell'}}],
+ '被逗笑':[
+  {t:0,action:{type:'emotion',name:'neutral'}},
+  {t:1,action:{type:'emotion',name:'confused'}},
+  {t:2.5,action:{type:'emotion',name:'surprise'}},
+  {t:4,action:{type:'emotion',name:'joy',intensity:100}},
+  {t:4,action:{type:'behavior',mode:'nodback'}}],
+ '昏昏欲睡':[
+  {t:0,action:{type:'arousal',to:15,over:8}},
+  {t:9,action:{type:'doze'}},
+  {t:12,action:{type:'doze'}},
+  {t:14.5,action:{type:'emotion',name:'terrified'}},
+  {t:15,action:{type:'emotion',name:'neutral'}},
+  {t:15,action:{type:'arousal',to:100,over:0.5}}]};
+
+/* ===== 说话演示时间表(页面演示数据,非锁定常量) =====
+   台词「你好,我是茄子X1,很高兴见到你。」拼音 "nihao, woshi qiezi X1, hen gaoxing jiandao ni."
+   经后端 bionic_cognition/viseme.build_plan(DEFAULT_FRAME_S/PUNCT_PAUSE_S 同 VTIME)离线预排;
+   条目 [viseme, weight, offset_s]。诚实边界:真机由 TTS 音素时间戳驱动,此为预排演示。 */
+const TALK_LINE=[["nn",0.6,0.0],["I",0.9,0.12],["kk",0.6,0.24],["aa",0.9,0.36],["O",0.9,0.48],
+ ["sil",0.0,0.6],["sil",0.0,0.78],["aa",0.5,0.9],["O",0.9,1.02],["CH",0.6,1.14],["I",0.9,1.26],
+ ["sil",0.0,1.38],["CH",0.6,1.5],["I",0.9,1.62],["E",0.9,1.74],["SS",0.6,1.86],["I",0.9,1.98],
+ ["sil",0.0,2.1],["CH",0.6,2.22],["aa",0.5,2.34],["sil",0.0,2.46],["sil",0.0,2.64],["kk",0.6,2.76],
+ ["E",0.9,2.88],["nn",0.6,3.0],["sil",0.0,3.12],["kk",0.6,3.24],["aa",0.9,3.36],["O",0.9,3.48],
+ ["CH",0.6,3.6],["I",0.9,3.72],["nn",0.6,3.84],["sil",0.0,3.96],["CH",0.6,4.08],["I",0.9,4.2],
+ ["aa",0.9,4.32],["nn",0.6,4.44],["DD",0.6,4.56],["aa",0.9,4.68],["O",0.9,4.8],["sil",0.0,4.92],
+ ["nn",0.6,5.04],["I",0.9,5.16],["sil",0.0,5.28],["sil",0.0,5.46]];
+// 说话演示接管的嘴部通道集合(= VAU 中出现过的 AU)
+const TALK_MOUTH=['AU17','AU20','AU23','AU25','AU26'];
+
+/* ===== 本台面 18 路(面部 id0-14 + 颈部 3 路;id15/16 由注视子系统驱动,不在台面) ===== */
+const PANEL=['AU1','AU2','AU4','AU5','AU6','AU7','AU9','AU12','AU15','AU17','AU20','AU23','AU25','AU26','AU_BLINK',
+             'NECK_PITCH','NECK_YAW','NECK_ROLL'];
+const LBL={AU1:'眉内抬',AU2:'眉外抬',AU4:'皱眉/降眉',AU5:'上睑提',AU6:'脸颊上提',AU7:'眼轮匝(眯)',
+ AU9:'鼻皱',AU12:'嘴角上扬(笑)',AU15:'嘴角下拉',AU17:'颏肌',AU20:'嘴角外展',AU23:'唇收紧',
+ AU25:'上下唇分',AU26:'下颌张开',AU_BLINK:'眼睑(眨眼)',
+ NECK_PITCH:'颈俯仰(+抬头/−点头)',NECK_YAW:'颈左右(摇头)',NECK_ROLL:'颈侧倾(歪头)'};
+const GROUPS=[
+ {g:'眉 · Brow(3 路)',ch:['AU1','AU2','AU4']},
+ {g:'眼 · Eye(4 路)',ch:['AU5','AU6','AU7','AU_BLINK']},
+ {g:'鼻/嘴 · Mouth(7 路)',ch:['AU9','AU12','AU15','AU17','AU20','AU23','AU25']},
+ {g:'颌 · Jaw(1 路)',ch:['AU26']},
+ {g:'颈 · Neck(3 路)',ch:['NECK_PITCH','NECK_YAW','NECK_ROLL']},
+];
+const EMO=[['neutral','😐 中性'],['joy','😊 喜悦'],['sadness','😢 悲伤'],['anger','😠 愤怒'],
+           ['surprise','😮 惊讶'],['fear','😨 恐惧'],['disgust','🤢 厌恶']];
+// 颈部预置轨迹:[时间s, 归一化激活 a](a 经 mapChannel 变角度,再经限速逐帧逼近 → 与真机同式)
+const NECK_MOVES=[
+ ['点头',  'NECK_PITCH',[[0,0],[0.30,-0.7],[0.60,0.15],[0.90,-0.7],[1.20,0.15],[1.55,0]]],
+ ['摇头',  'NECK_YAW',  [[0,0],[0.35,0.8],[0.95,-0.8],[1.50,0.55],[2.00,-0.55],[2.45,0]]],
+ ['抬头',  'NECK_PITCH',[[0,0],[0.55,0.9],[1.60,0.9],[2.30,0]]],
+];
+
+/* ===== AU→角度映射(与 au_servo_map.map_channel 同式,gamma=1/deadband=0/invert=false) ===== */
+function clampN(v,lo,hi){if(lo>hi){const t=lo;lo=hi;hi=t;}return v<lo?lo:(v>hi?hi:v);}
+function mapChannel(a,c){const s=a<0?-1:1;return clampN(c.neutral+s*Math.pow(Math.abs(a),1)*c.gain,c.min,c.max);}
+// 反解:角度 → 归一化激活 a=(angle-neutral)/gain(gamma=1)
+function invChannel(ang,c){return (ang-c.neutral)/c.gain;}
+
+/* ===== 复合情绪混合(与 emotion_mix.mix_from_pairs/blend_emotions/parse_emotion_spec 同式) ===== */
+function clamp01(v){return v<0?0:(v>1?1:v);}
+// [(emotion,weight),...] → 叠加 AU 字典(逐 AU 钳位 0..1);未知情绪贡献为空(同后端)
+function mixFromPairs(pairs){const out={};
+ for(const [emo,w] of pairs){const p=PRESETS[emo]||{};
+  for(const au in p)out[au]=(out[au]||0)+p[au]*w;}
+ for(const au in out)out[au]=clamp01(out[au]);
+ return out;}
+function blendEmotions(a,wa,b,wb){return mixFromPairs([[a,wa],[b,wb]]);}
+// spec 解析:"joy" / "joy+surprise" / "joy:0.6,surprise:0.4";坏权重按 1 容错(同 float() 抛错回退)
+function parseEmotionSpec(spec){const out=[];
+ for(let item of String(spec==null?'':spec).replace(/\+/g,',').split(',')){item=item.trim();
+  if(!item)continue;
+  const i=item.indexOf(':');
+  if(i>=0){const t=item.slice(i+1).trim();const w=t===''?NaN:Number(t);
+   out.push([item.slice(0,i).trim(),isFinite(w)?w:1.0]);}
+  else out.push([item,1.0]);}
+ return out;}
+function mixSpec(spec){return mixFromPairs(parseEmotionSpec(spec));}
+
+/* ===== AU 耦合约束层(与 expression_coupling.coordinate 同式:两轮定点,先协同后拮抗) ===== */
+// 协同联动:被联动 AU 抬到至少 ratio×driver(只抬不压);drivers 传上一轮拮抗后结果 → 幽灵联动回收
+function applySynergiesJS(au,drivers){const out={...au},src=drivers||out;
+ for(const [drv,fol,ratio] of SYNERGIES){const d=src[drv]||0;
+  if(d<=0)continue;
+  const floor=ratio*d;
+  if(floor>(out[fol]||0))out[fol]=clamp01(floor);}
+ return out;}
+// 拮抗互锁:弱组按强组强度软抑制(winner-take-most);平手等比减至中点;exempt 豁免(口型/复合情绪并存)
+function resolveAntagonistsJS(au,strength,exempt){const out={...au},s=Math.max(0,strength);
+ for(const [ga,gb] of ANTAGONISTS){
+  const a=Math.max(0,...ga.map(x=>out[x]||0)),b=Math.max(0,...gb.map(x=>out[x]||0));
+  if(a===0&&b===0)continue;
+  const active=ga.concat(gb).filter(x=>(out[x]||0)>0);   // 两侧激活成员全豁免 → 有意并存,整对跳过
+  if(active.length&&active.every(x=>exempt.has(x)))continue;
+  if(a===b){const sc=clamp01(1-0.5*s*a);                 // 平手:双方等比软抑制,保持对称
+   for(const x of ga.concat(gb))if(x in out&&!exempt.has(x))out[x]=clamp01(out[x]*sc);
+   continue;}
+  const winner=a>b?a:b,loser=a>b?gb:ga,sc=clamp01(1-s*winner);
+  for(const x of loser)if(x in out&&!exempt.has(x))out[x]=clamp01(out[x]*sc);}
+ return out;}
+// 协调入口:输入/输出均钳位 0..1;两轮定点迭代(第二轮用拮抗后的驱动值重算协同下限)
+function coordinateAU(au,exempt){
+ const raw={};for(const k in au)raw[k]=clamp01(+au[k]||0);
+ let cur={...raw};
+ for(let i=0;i<2;i++)cur=resolveAntagonistsJS(applySynergiesJS(raw,cur),1.0,exempt);
+ return cur;}
+// 豁免集合(同 expression_engine_node.cpp §1e):①viseme 驱动的 AU25/AU26 发音优先;
+// ②拮抗两侧均有情绪层激活(复合情绪并存,如 joy+sadness 的 AU12+AU15)→ 并存不互斥
+function buildExempt(emoAU){const ex=new Set();
+ if(talk)for(const c of ['AU25','AU26'])if((talk.visAU[c]||0)>0)ex.add(c);
+ for(const [ga,gb] of ANTAGONISTS){
+  const ea=ga.some(x=>(emoAU[x]||0)>0),eb=gb.some(x=>(emoAU[x]||0)>0);
+  if(ea&&eb)for(const x of ga.concat(gb))if((emoAU[x]||0)>0)ex.add(x);}
+ return ex;}
+
+/* ===== 行为仲裁(与 arbiter.BehaviorArbiter 同式:说话>情绪>空闲;idle 快出慢入+情绪保持) ===== */
+const arb={idle:1,active:0,state:'idle',emoT:0};
+function arbTick(speak,emotion,dt){
+ let st;
+ if(speak>ARB.SPEAK_THR){st='speaking';arb.emoT=0;}
+ else if(emotion>ARB.EMO_THR){st='emotion';arb.emoT=ARB.EMO_HOLD;}
+ else if(arb.emoT>0){st='emotion';arb.emoT=Math.max(0,arb.emoT-dt);}   // 情绪保持淡出
+ else st='idle';
+ arb.state=st;
+ const target=st==='idle'?1:0;
+ const tau=target<arb.idle?ARB.FAST_TAU:ARB.IDLE_IN_TAU;               // 快出慢入
+ const a=1-Math.exp(-Math.max(1e-3,dt)/Math.max(1e-3,tau));
+ arb.idle=clampN(arb.idle+a*(target-arb.idle),0,1);
+ arb.active=1-arb.idle;}
+
+/* ===== 心境层(与 mood_dynamics.py 逐行同式:step_mood/decay_only/effective_mood/mood_to_modulation) ===== */
+const MOOD_AXES=['pleasure','arousal_bias','dominance'];
+function clampM(v,lo,hi){return Math.max(lo,Math.min(hi,v));}   /* 同 mood_dynamics._clamp */
+// 瞬时情绪事件驱动心境一步演化(leaky integrator):mood += (pad×强度 − mood/τ)×dt,逐轴钳位 [-1,1]
+function stepMood(mood,emotion,intensity,dt){
+ const pad=MOOD_PAD[emotion]||MOOD_PAD_EXT[emotion]||MOOD_PAD.neutral;   /* pad_of 同式:基础∪扩展,未知按 neutral */
+ const out={};
+ for(const ax of MOOD_AXES){const m=mood[ax]||0;
+  out[ax]=clampM(m+(pad[ax]*intensity-m/MOOD_MOD.TAU_MOOD)*dt,-1,1);}
+ return out;}
+function decayOnlyMood(mood,dt){return stepMood(mood,'neutral',0.0,dt);}   /* 无事件纯衰减 */
+// 瞬时心境 + 人格基线偏置 → 有效心境(逐轴钳位;未知人格按零偏置)
+function effectiveMood(mood,personality){
+ const bias=PERSONA[personality]||{};
+ const out={};
+ for(const ax of MOOD_AXES)out[ax]=clampM((mood[ax]||0)+(bias[ax]||0),-1,1);
+ return out;}
+// 有效心境 → 5 项表情调制系数(线性+钳位,1.0 均为中性无调制,同 mood_to_modulation)
+function moodToModulation(mood){
+ const p=mood.pleasure||0,a=mood.arousal_bias||0;
+ return {intensity_gain:clampM(1.0+MOOD_MOD.GAIN_PLEASURE_SLOPE*p,0.7,1.3),
+  arousal_baseline:clampM(0.5+a*0.5,0.0,1.0),
+  idle_breath_scale:clampM(1.0-MOOD_MOD.BREATH_AROUSAL_SLOPE*a,0.7,1.3),
+  blink_interval_scale:clampM(1.0-MOOD_MOD.BLINK_AROUSAL_SLOPE*a,0.6,1.4),
+  saccade_rate_scale:clampM(1.0+MOOD_MOD.SACCADE_AROUSAL_SLOPE*a,0.5,1.5)};}
+/* —— 心境面板状态与推进(数据流:L0 情绪驱动 step_mood,其余时刻每帧 decay_only)—— */
+let mood={pleasure:0,arousal_bias:0,dominance:0};   /* 瞬时心境(人格偏置在 effectiveMood 叠加) */
+let persona='';                                     /* 人格档:''=无偏置 / warm / calm / lively */
+let moodMod=moodToModulation(mood);                 /* 当前调制系数(每帧由有效心境重算;初始全中性) */
+let arousMoodDriven=false,moodUiAt=0;               /* 清醒度来源开关(默认手动=现有行为不变)/ UI 节流 */
+let moodAtS=null;                                   /* 心境自身时钟(秒):同 daffTick 真实时钟口径,免切页签 rAF 挂起把 τ=60s 积分器冻结 */
+function moodTick(now){
+ /* 驱动源:当前 L0 为 7 基础情绪预设(MOOD_PAD 有真值向量)且非急停 → 按滑杆强度持续驱动;
+    扩展/复合/自定义情绪无 PAD 真值向量 → 按 neutral 纯衰减(演示层取舍,面板已注明) */
+ const nowS=now/1000;
+ let rem=moodAtS==null?0:Math.min(Math.max(0,nowS-moodAtS),600);   /* 真实流逝;>10τ 截断(积分早已收敛) */
+ moodAtS=nowS;
+ // 驱动源:基础预设与扩展态(PAD 扩展表已落地)均驱动;复合/自定义仍无 PAD 向量按 neutral。
+ // 名字取处:preset 存于 curEmo(markEmo),ext 路径 curEmo 被置空、名字在 curEmoLabel
+ const emoName=curEmoKind==='preset'?curEmo:(curEmoKind==='ext'?curEmoLabel:null);
+ const drive=(!estop&&emoName&&(MOOD_PAD[emoName]||MOOD_PAD_EXT[emoName]))?emoName:'neutral';
+ while(rem>0){const h=Math.min(rem,0.1);rem-=h;     /* 子步≤0.1s:长挂起后分段积分,保显式欧拉稳定且与逐帧路径同式 */
+  mood=drive==='neutral'?decayOnlyMood(mood,h):stepMood(mood,drive,inten,h);}
+ moodMod=moodToModulation(effectiveMood(mood,persona));
+ if(arousMoodDriven)setArousal(moodMod.arousal_baseline);   /* 心境驱动模式:接管清醒度滑杆 */
+ if(now-moodUiAt>150){moodUiAt=now;moodUi();}}
+function moodUi(){
+ const em=effectiveMood(mood,persona);
+ for(const ax of MOOD_AXES){const v=em[ax],f=$('mb_'+ax),tv=$('mv_'+ax);
+  if(!f)continue;
+  const w=Math.abs(v)*50;                            /* 双向条:0 在中点,右正左负 */
+  f.style.left=(v<0?50-w:50)+'%';f.style.width=w+'%';
+  f.style.background=v>=0?'var(--teal)':'var(--amber)';
+  if(tv)tv.textContent=(v>=0?'+':'')+v.toFixed(2);}
+ const el=$('moodModTxt');
+ if(el)el.textContent=`调制:intensity_gain=${moodMod.intensity_gain.toFixed(2)} · `+
+  `arousal_baseline=${moodMod.arousal_baseline.toFixed(2)}${arousMoodDriven?'(已接管清醒度)':'(手动,未接管)'} · `+
+  `呼吸幅×${moodMod.idle_breath_scale.toFixed(2)} · 眨眼间隔×${moodMod.blink_interval_scale.toFixed(2)} · `+
+  `扫视×${moodMod.saccade_rate_scale.toFixed(2)}`;}
+
+/* ===== 对话驱动状态迁移(与 dialogue_affect.py 逐行同式:init/step_affect/decay_affect/extract_events) ===== */
+function initAffect(nowS){return {current:'neutral',intensity:0.0,confidence:0.0,pending:null,
+ entered_at:nowS,last_event_at:nowS,updated_at:nowS};}
+// 喂入一个对话事件(迟滞:最短驻留 + 置信度阈值),返回新状态(纯函数,不改入参)
+function stepAffect(state,event,nowS){
+ const nw={...state};
+ nw.updated_at=nowS;
+ if(!DAFF_EVENTS[event])return nw;                      /* 未知事件:仅推进 updated_at */
+ const [target,gain,intensity]=DAFF_EVENTS[event];
+ nw.last_event_at=nowS;
+ if(target===nw.current){                               /* 同态强化:刷新强度、清空异候选积累 */
+  nw.intensity=Math.max(nw.intensity,intensity);
+  nw.confidence=0.0;nw.pending=null;
+  return nw;}
+ if(nw.pending===target)nw.confidence=Math.min(DAFF_CONST.CONFIDENCE_MAX,nw.confidence+gain);
+ else if(nw.pending===null||nw.confidence<=0.0){nw.pending=target;nw.confidence=gain;}
+ else{                                                  /* 异候选:先衰减旧候选,归零才清空 */
+  nw.confidence=Math.max(0.0,nw.confidence-gain);
+  if(nw.confidence===0.0)nw.pending=null;
+  return nw;}
+ if(nw.pending===target&&nw.confidence>=DAFF_CONST.TRIGGER_THRESHOLD
+    &&(nowS-nw.entered_at)>=DAFF_CONST.MIN_DWELL_S){    /* 迁移:置信达阈 + 驻留满最短时长 */
+  nw.current=target;nw.intensity=intensity;nw.entered_at=nowS;
+  nw.confidence=0.0;nw.pending=null;}
+ return nw;}
+// 无事件推进 dt 秒:置信度线性衰减;距最近事件达超时且非 neutral → 回落 neutral
+function decayAffect(state,dt){
+ const nw={...state};
+ if(dt<=0)return nw;
+ const nowS=nw.updated_at+dt;
+ nw.updated_at=nowS;
+ nw.confidence=Math.max(0.0,nw.confidence-DAFF_CONST.CONFIDENCE_DECAY_PER_S*dt);
+ if(nw.confidence===0.0)nw.pending=null;
+ if(nw.current!=='neutral'&&(nowS-nw.last_event_at)>=DAFF_CONST.NEUTRAL_TIMEOUT_S){
+  nw.current='neutral';nw.intensity=0.0;nw.entered_at=nowS;
+  nw.confidence=0.0;nw.pending=null;}
+ return nw;}
+// 中文关键词启发式:文本 → 命中事件列表(按 DAFF_EVENTS 键序去重;演示层,线上由 LLM 标注融合)
+function extractEvents(text){
+ const low=String(text==null?'':text).trim().toLowerCase();
+ if(!low)return [];
+ return Object.keys(DAFF_EVENTS).filter(ev=>DAFF_KW[ev].some(kw=>low.indexOf(kw)>=0));}
+/* —— 对话面板状态:发送→extract_events→step_affect;每帧 decay_affect;迁移→触发同名预设 —— */
+let daff=initAffect(0);const daffT0=performance.now();let daffUiAt=0;
+const DAFF_QUICK=['你真棒!','没听懂','讲个笑话','再见'];   /* 示例快捷句(演示层) */
+function daffNowS(now){return (now-daffT0)/1000;}
+function daffApplyState(name,intensity){
+ /* 迁移 → 自动触发对应情绪预设/扩展状态(走既有 L0 包络×强度×耦合×限速通道);
+    neutral 回落不动强度滑杆(neutral 预设为空 AU,强度无意义)。
+    急停中整体忽略(同固件:指令不下发,滑杆等 UI 副作用也不发生;认知态照常推进,
+    恢复后状态机与表情的差异等第一条新指令接管——hold 语义,如实取舍) */
+ if(estop)return;
+ if(name!=='neutral'){inten=clampN(intensity,0,1);
+  $('inten').value=Math.round(inten*100);$('intenV').textContent=Math.round(inten*100)+'%';}
+ if(PRESETS[name])applyEmotion(name);
+ else if(EXT_PRESETS[name]&&applyEmotionAU(EXT_PRESETS[name],name,'ext')){
+  markEmo(null);
+  const b=$('x_'+name);
+  if(b)b.classList.add('on');}}
+function daffSend(txt){
+ const line=String(txt==null?$('daffIn').value:txt).trim();
+ if(!line)return;
+ const evs=extractEvents(line);
+ const nowS=daffNowS(performance.now()),prev=daff.current;
+ for(const ev of evs)daff=stepAffect(daff,ev,nowS);
+ const moved=daff.current!==prev;
+ if(moved)daffApplyState(daff.current,daff.intensity);
+ $('daffST').textContent=`「${line}」→ 事件 [${evs.join(', ')||'无命中'}]`+
+  (moved?` → 迁移 ${prev} → ${daff.current} ✓(已触发情绪预设)`
+   :(daff.pending?` → 候选 ${daff.pending} 置信 ${daff.confidence.toFixed(2)}/${DAFF_CONST.TRIGGER_THRESHOLD.toFixed(1)}`
+     :' → 状态不变'));
+ daffUi(performance.now());}
+function daffTick(now){
+ const dtA=daffNowS(now)-daff.updated_at;   /* 用状态机自身时钟差推进,免标签页休眠时钟漂移 */
+ if(dtA>0){const prev=daff.current;
+  daff=decayAffect(daff,dtA);
+  if(daff.current!==prev&&!estop&&!hold)daffApplyState(daff.current,daff.intensity);}   /* 超时回落 neutral(急停/hold 不发指令) */
+ if(now-daffUiAt>150){daffUiAt=now;daffUi(now);}}
+function daffUi(now){
+ const cf=$('daffCf');
+ if(!cf)return;
+ cf.style.width=(clampN(daff.confidence/DAFF_CONST.CONFIDENCE_MAX,0,1)*100)+'%';
+ $('daffCfV').textContent=daff.confidence.toFixed(2)+'/'+DAFF_CONST.CONFIDENCE_MAX.toFixed(2);
+ const nowS=daffNowS(now==null?performance.now():now);
+ const dwell=Math.max(0,nowS-daff.entered_at),idle=Math.max(0,nowS-daff.last_event_at);
+ $('daffCur').textContent=`当前 ${daff.current} 强度 ${daff.intensity.toFixed(2)} · `+
+  `驻留 ${dwell.toFixed(1)}s(满 ${DAFF_CONST.MIN_DWELL_S.toFixed(1)}s 才可迁移)· `+
+  `候选 ${daff.pending||'—'} · `+
+  (daff.current!=='neutral'?`距超时回落 ${Math.max(0,DAFF_CONST.NEUTRAL_TIMEOUT_S-idle).toFixed(0)}s`:'处于 neutral');}
+
+/* ===== 自然度层(与 naturalness.py 逐分支同式:hash01/asymmetry_pair/vary_keyframes/reaction_delay) ===== */
+// FNV-1a 哈希 → [0,1) 确定性伪随机:init 2166136261 / prime 16777619,逐 UTF-8 字节 xor+mul mod 2^32,
+// 每个片段结束后再 xor 0x2E(间隔符 '.',防拼接歧义)并 mul;32 位溢出乘法用 Math.imul 镜像 Python 的 &0xFFFFFFFF
+const NAT_ENC=new TextEncoder();
+function hash01(...parts){
+ let h=2166136261>>>0;
+ for(const p of parts){
+  for(const b of NAT_ENC.encode(String(p))){h=(h^b)>>>0;h=Math.imul(h,16777619)>>>0;}
+  h=(h^0x2E)>>>0;h=Math.imul(h,16777619)>>>0;}
+ return h/4294967296;}
+function natSigned(...parts){return 2*hash01(...parts)-1;}   /* 同 naturalness._signed:[-1,1) 有符号系数 */
+// 通道/AU 名 + 种子 → [左增益, 右增益]:d∈[-ASYM_MAX,ASYM_MAX),(1+d,1-d) 和恒为 2(总强度守恒只重分配)
+function asymmetryPair(key,seed){
+ const d=natSigned('asym',key,seed)*NATURAL.ASYM_MAX;
+ return [1+d,1-d];}
+// 关键帧确定性变异(同 vary_keyframes):首帧时刻锚定,其余 ±6% 且保严格递增;
+// 幅度 = 基准 + 偏移×(1±4%)(base 缺省 0,适配 AU 权重);clamp 可选限位回调;同 (kfs,seed) 恒同输出
+function varyKeyframes(kfs,seed,base,clamp){
+ base=base||{};
+ const out=[];let prevT=null;
+ for(let i=0;i<kfs.length;i++){
+  let t=+kfs[i][0];const kf=kfs[i][1];
+  if(i>0){t=t*(1+natSigned('t',seed,i)*NATURAL.VARY_TIME_FRAC);
+   if(prevT!==null&&t<=prevT)t=prevT+1e-3;}           // 保严格递增(不倒序、不重合)
+  prevT=t;
+  const nk={};
+  for(const k in kf){const b=+(base[k]||0);
+   nk[k]=b+(+kf[k]-b)*(1+natSigned('a',seed,i,k)*NATURAL.VARY_AMP_FRAC);}
+  out.push([t,clamp?clamp(nk):nk]);}
+ return out;}
+// 种子 → 类人反应延迟(s),[REACT_MIN_S, REACT_MAX_S) 内确定性取值(瞬时零延迟响应=机器感)
+function reactionDelay(seed){
+ return NATURAL.REACT_MIN_S+hash01('react',seed)*(NATURAL.REACT_MAX_S-NATURAL.REACT_MIN_S);}
+// 情绪名 + 单位随机数 u∈[0,1) → [变体名, AU 表拷贝](同 expression_variants.variant_for 逐分支):
+// u<0.5 标准 / u<0.8 含蓄 / 其余强化(VARIANT_WEIGHTS);6 基础 + 10 扩展态同表同口径;
+// neutral/未知无变体,回退 ['standard',{}] —— 调用方按原预设走
+function variantFor(emotion,u){
+ const table=EXPR_VAR[emotion];
+ if(!table)return ['standard',{}];
+ u=+u;
+ let name;
+ if(u<VARIANT_WEIGHTS[0])name='standard';
+ else if(u<VARIANT_WEIGHTS[0]+VARIANT_WEIGHTS[1])name='subtle';
+ else name='intense';
+ return [name,Object.assign({},table[name])];}
+const VARIANT_ZH={standard:'标准',subtle:'含蓄',intense:'强化'};   /* 档名中文(演示层显示) */
+let varOn=false,varSeq=0;   /* 变体开关默认关=现状零改变 / 自增序号(计数种子,同序列可复现) */
+// 基础情绪预设点击入口:开关开且 EXPR_VAR 有表(6 基础 + 10 扩展态)→
+// u=hash01('variant',情绪,自增序号) 选变体档,以变体 AU 表替代预设走同一 applyEmotionAU
+// 通道(包络×强度×耦合×限速,强度滑杆语义不变);关/neutral → 原预设(现状零改变);
+// 复合/自定义/对话状态机/剧本不经此入口,不受影响。急停中点击被忽略时序号不前进(保持确定性序列)。
+function applyEmotionVariant(k){
+ if(!varOn||!EXPR_VAR[k]){applyEmotion(k);return;}
+ const u=hash01('variant',k,String(varSeq+1));
+ const [vn,au]=variantFor(k,u);
+ if(!applyEmotionAU(au,k,'preset'))return;
+ markEmo(k);varSeq++;
+ $('varSeqV').textContent=varSeq;
+ varTxtShow(k,vn,u,au);}
+// 扩展态点击入口的变体支路(kind='ext':markEmo(null)+curEmoLabel 记账口径不变)
+function applyExtVariant(k){
+ if(!varOn||!EXPR_VAR[k])return applyEmotionAU(EXT_PRESETS[k],k,'ext');
+ const u=hash01('variant',k,String(varSeq+1));
+ const [vn,au]=variantFor(k,u);
+ if(!applyEmotionAU(au,k,'ext'))return false;
+ varSeq++;
+ $('varSeqV').textContent=varSeq;
+ varTxtShow(k,vn,u,au);
+ return true;}
+function varTxtShow(k,vn,u,au){
+ $('varTxt').textContent=`本次变体:${k} → ${vn}(${VARIANT_ZH[vn]})· `+
+  `u=${u.toFixed(3)}(hash01('variant','${k}','${varSeq}'))· `+
+  Object.entries(au).map(([a,v])=>a+'='+v).join(' ');}
+/* —— 自然度面板状态:开关默认全关=现状零改变;种子确定性,换一版=seed+1 —— */
+// 左右成对面部通道:CH 表 18 路均为双侧联动(无左右独立通道),左右仅在 AU→ARKit blendshape
+// 扇出处成对存在(*Left/*Right);从 AU2BS 推导成对表,排除眨眼事件通道(wink 单眼硬件不可做)
+const NAT_PAIRS=Object.keys(AU2BS).filter(n=>n!=='AU_BLINK'
+ &&Object.keys(AU2BS[n]).some(k=>/Left$/.test(k))
+ &&Object.keys(AU2BS[n]).some(k=>/Right$/.test(k)));
+let natAsymOn=false,natDelayOn=false,natSeed=1;   /* 两开关默认关 / 当前种子 */
+let natGains={},natApplied={},natUiAt=0;          /* 各成对通道 [左,右] 增益 / 本帧活跃激活量 / UI 节流 */
+let natDelayTimer=null,natPendingFn=null;         /* 反应延迟 pending(急停/手动接管清除) */
+function natRecalc(){natGains={};
+ for(const n of NAT_PAIRS)natGains[n]=asymmetryPair(n,natSeed);}
+// 情绪预设点击的延迟触发包装:关=瞬时(现状);开=reactionDelay(seed) 秒后 setTimeout 真正触发;
+// 连点后点覆盖前点(单 pending);急停/手动接管(clearEmoLayer)清 pending——复查修复:
+// 否则更早的延迟点击会反超其后的即时指令(回中/滑杆),终态与点击顺序相反;
+// 延迟到期后 fn 内部 userCommand 仍会拦急停(双保险)
+function natDelayed(fn){
+ if(!natDelayOn){fn();return;}
+ if(natDelayTimer)clearTimeout(natDelayTimer);
+ natPendingFn=fn;
+ const d=reactionDelay(natSeed);
+ natDelayTimer=setTimeout(()=>{natDelayTimer=null;natPendingFn=null;fn();},d*1000);
+ $('natDelayTxt').textContent=`本次延迟 ${(d*1000).toFixed(1)} ms(reaction_delay(seed=${natSeed}),确定性取值)`;}
+function natClearPending(msg){
+ natPendingFn=null;
+ if(!natDelayTimer)return;
+ clearTimeout(natDelayTimer);natDelayTimer=null;
+ $('natDelayTxt').textContent=msg||'反应延迟:pending 触发已清除';}
+function natAsymUi(){
+ const el=$('natAsymTxt');
+ if(!el)return;
+ if(!natAsymOn){el.textContent='不对称:关(左右增益恒 (1.0000, 1.0000),现状零改变)';return;}
+ el.innerHTML=`不对称增益 ×(左, 右)(asymmetry_pair,seed=${natSeed};和恒为 2):<br>`+
+  NAT_PAIRS.map(n=>{const g=natGains[n];
+   const a=natApplied[n];
+   const act=a!=null?` · 激活 ${a.toFixed(2)} → 左 ${(a*g[0]).toFixed(3)} / 右 ${(a*g[1]).toFixed(3)}`:'';
+   return `${n} (${g[0].toFixed(4)}, ${g[1].toFixed(4)})${act}`;}).join('<br>');}
+// 变异演示:示例关键帧前后对照(演示数据,不锁定;只可视化不接管线——变异已接入臂侧手势,面部包络接入留后续)
+const NAT_DEMO_KFS=[[0,{AU12:0}],[0.5,{AU12:0.8}],[1.0,{AU12:0}]];
+function natVaryUi(){
+ const out=varyKeyframes(NAT_DEMO_KFS,natSeed);
+ $('natVary').innerHTML=`变异对照 vary_keyframes(seed=${natSeed}):时刻 ±6%(首帧锚定)/ 幅度 ±4%<br>`+
+  NAT_DEMO_KFS.map((kf,i)=>`t ${kf[0].toFixed(3)}s AU12 ${kf[1].AU12.toFixed(3)} → `+
+   `t ${out[i][0].toFixed(4)}s AU12 ${out[i][1].AU12.toFixed(4)}`).join('<br>');}
+
+/* ===== 双目视觉(与 stereo_vision.py 逐分支同式:disparity_px/vergence_deg/project_px/
+   react_to_event/target_at/events_between/scene_duration)===== */
+const STEREO_MIN_DEPTH_M=STEREO.FOCAL_PX*STEREO.BASELINE_M/STEREO.MAX_DISPARITY_PX;  /* 最近可测深度 f·B/128 ≈ 0.29m(公式导出,同 MIN_DEPTH_M) */
+function stereoClamp(v,lo,hi){return v<lo?lo:(v>hi?hi:v);}   /* 同 stereo_vision.clamp */
+// 深度(米)→ 视差(像素):d=f·B/z,深度钳 [MIN_DEPTH_M, MAX_DEPTH_M]
+function disparityPx(depthM){
+ const z=stereoClamp(+depthM,STEREO_MIN_DEPTH_M,STEREO.MAX_DEPTH_M);
+ return STEREO.FOCAL_PX*STEREO.BASELINE_M/z;}
+// 注视会聚角(度):双眼视线夹角 2·atan(B/2 / z),越近会聚越大(z 钳有效区)
+function vergenceDeg(depthM){
+ const z=stereoClamp(+depthM,STEREO_MIN_DEPTH_M,STEREO.MAX_DEPTH_M);
+ return 2.0*Math.atan((STEREO.BASELINE_M/2.0)/z)*180/Math.PI;}
+// 目标(方位角, 深度)→ 某眼图像 x(像素;eye:-1=左/+1=右):x=W/2+f·tan(bearing)−eye·d/2
+// (bearing 正=目标在右侧→x 增大;左眼图目标偏右、右眼图偏左即视差,越近偏移越大)
+function projectPx(bearingDeg,depthM,eye){
+ const z=stereoClamp(+depthM,STEREO_MIN_DEPTH_M,STEREO.MAX_DEPTH_M);
+ const x=STEREO.IMG_W_PX/2.0+STEREO.FOCAL_PX*Math.tan(+bearingDeg*Math.PI/180);
+ return x-eye*disparityPx(z)/2.0;}
+// 视觉事件 → 表情/注视反应(未知事件 null 安全忽略):强度=基准×距离调制钳 [0,1];
+// dist=null 不调制(gain=1)、会聚按 MAX_DEPTH_M 远景平行(逐分支同 react_to_event)
+function reactToEvent(event,distM,bearingDeg){
+ const r=VISION_REACT[event];
+ if(!r)return null;
+ const [emo,base,dur]=r;
+ let gain=1.0,z=STEREO.MAX_DEPTH_M;
+ if(distM!=null){
+  z=stereoClamp(+distM,STEREO_MIN_DEPTH_M,STEREO.MAX_DEPTH_M);
+  gain=stereoClamp(STEREO.DIST_REF_M/z,STEREO.DIST_GAIN_MIN,STEREO.DIST_GAIN_MAX);}
+ return {emotion:emo,intensity:stereoClamp(base*gain,0.0,1.0),duration_s:dur,
+  gaze_bearing_deg:bearingDeg==null?0.0:+bearingDeg,vergence_deg:vergenceDeg(z)};}
+// 场景总时长=末事件时刻+该事件反应时长(表情放完,同 scene_duration)
+function sceneDuration(name){
+ const evs=VISION_SCENES[name],last=evs[evs.length-1];
+ return last[0]+VISION_REACT[last[1]][2];}
+// 场景 t 时刻目标状态 {dist,bearing}:事件点间线性插值、t 钳区间(同 target_at)
+function targetAt(name,t){
+ const evs=VISION_SCENES[name];
+ if(t<=evs[0][0]){const p=evs[0][2];return {dist:p.dist,bearing:p.bearing};}
+ if(t>=evs[evs.length-1][0]){const p=evs[evs.length-1][2];return {dist:p.dist,bearing:p.bearing};}
+ for(let i=1;i<evs.length;i++){const [t0,,p0]=evs[i-1],[t1,,p1]=evs[i];
+  if(t0<=t&&t<=t1){const u=t1<=t0?0.0:(t-t0)/(t1-t0);
+   return {dist:p0.dist+(p1.dist-p0.dist)*u,bearing:p0.bearing+(p1.bearing-p0.bearing)*u};}}
+ const p=evs[evs.length-1][2];
+ return {dist:p.dist,bearing:p.bearing};}   /* 数值兜底(理论不可达,同后端) */
+// (t0,t1] 内应派发的事件反应列表(逐帧推进派发口径,同 events_between)
+function eventsBetween(name,t0,t1){
+ const out=[];
+ for(const [te,ev,p] of VISION_SCENES[name]){
+  if(t0<te&&te<=t1){
+   const r=reactToEvent(ev,p.dist,p.bearing==null?0.0:p.bearing);
+   if(r){r.event=ev;out.push(r);}}}
+ return out;}
+/* —— 场景播放态(脚本化预设;演示层编排,数学/事件表为上方锁定真值)—— */
+const SV_SCENE_ZH=[['visitor','👤 访客来访'],['handoff','🤲 递物审视'],['startle','⚡ 惊扰'],
+ ['dusk','🌆 暮色'],['playful','🙌 逗乐互动']];
+const SV_EVENT_ZH={person_appear:'有人出现',person_close:'有人走近',person_leave:'有人离开',
+ smile_detected:'检测到微笑',wave_seen:'看到挥手',fast_approach:'快速逼近',bright_flash:'强光闪过',
+ darkness:'光线变暗',object_shown:'被展示物体',unknown_object:'未知物体'};
+let svScene=null;                 /* 播放态 {name,t0,lastT}(点新场景=直接覆盖抢占) */
+const svEye={y:0};                /* 注视联动:眼球偏航归一化激活(演示层映射 bearing/30 钳 [-1,1]) */
+let svIcon='person_appear';       /* 双目画面当前图标(按最近事件类型换图标) */
+let svLogLines=[],svLC=null,svRC=null;
+function svSceneZh(name){const e=SV_SCENE_ZH.find(x=>x[0]===name);return e?e[1]:name;}
+function svStart(name){
+ if(!userCommand())return;        /* 急停中忽略指令(同固件门禁);hold 中算新数据帧 */
+ svScene={name,t0:performance.now(),lastT:-1e-9};   /* lastT 取 0⁻:让 t=0 事件按 (t0,t1] 口径在首帧派发(演示层起拍取舍) */
+ svIcon=VISION_SCENES[name][0][1];
+ svLogLines=[];$('svLog').textContent='—';
+ for(const [k] of SV_SCENE_ZH){const b=$('sv_'+k);if(b)b.classList.toggle('on',k===name);}
+ $('svST').textContent=`▶ 播放「${svSceneZh(name)}」…`;}
+function svStop(msg,clear){
+ for(const [k] of SV_SCENE_ZH){const b=$('sv_'+k);if(b)b.classList.remove('on');}
+ svScene=null;svEye.y=0;          /* 注视联动归零(眼球回中;颈目标保持,经限速自然停) */
+ if(msg)$('svST').textContent=msg;
+ if(clear){svDrawIdle();
+  $('svRead').textContent='dist=— m · disparity=—px · vergence=—° ·(z=f·B/d 同式)';}}
+// 事件派发:①表情走既有情绪通道 ②注视联动(演示层映射) ③事件日志行
+function svDispatch(r,t){
+ if(estop)return;                                   /* 双保险(svTick 已在急停时停播清画面) */
+ svIcon=r.event;
+ // ① 表情:基础态 applyEmotion / 扩展态 EXT_PRESETS,同一包络×强度×耦合×限速通道;
+ //    强度取事件距离调制后强度(同对话状态机触发口径;直连不经自然度反应延迟,防双重延迟)
+ inten=clampN(r.intensity,0,1);
+ $('inten').value=Math.round(inten*100);$('intenV').textContent=Math.round(inten*100)+'%';
+ if(PRESETS[r.emotion])applyEmotion(r.emotion);
+ else if(EXT_PRESETS[r.emotion]&&applyEmotionAU(EXT_PRESETS[r.emotion],r.emotion,'ext')){
+  markEmo(null);
+  const b=$('x_'+r.emotion);
+  if(b)b.classList.add('on');}
+ // ② 注视联动(演示层映射,已在面板注明):眼球偏航激活=bearing/30 钳 [-1,1](gazeTick 叠加
+ //    到 3D 眼骨,id15/16 不在台面);颈 NECK_YAW 目标小幅跟随 bearing×0.6°(经既有限速管线)
+ svEye.y=clampN(r.gaze_bearing_deg/30,-1,1);
+ if(userCommand()){const c=CH.NECK_YAW;
+  S.NECK_YAW.t=clampN(c.neutral+r.gaze_bearing_deg*0.6,c.min,c.max);
+  $('in_NECK_YAW').value=S.NECK_YAW.t;
+  if(traj&&traj.ch==='NECK_YAW')traj=null;}         /* 跟随即接管,打断颈部预置轨迹 */
+ // ③ 事件日志(时刻+事件名中文+情绪×强度+注视/会聚读数)
+ svLogLines.unshift(`[${t.toFixed(1)}s] ${SV_EVENT_ZH[r.event]||r.event}(${r.event})→ `+
+  `${r.emotion}×${r.intensity.toFixed(2)} · 注视 ${r.gaze_bearing_deg.toFixed(0)}° · 会聚 ${r.vergence_deg.toFixed(2)}°`);
+ if(svLogLines.length>8)svLogLines.length=8;
+ $('svLog').innerHTML=svLogLines.join('<br>');}
+// darkness 事件期间画面调暗 / bright_flash 短促白闪(0.25s,演示层视觉效果)
+function svDimFlash(name,t){
+ let dim=false,flash=false;
+ for(const [te,ev] of VISION_SCENES[name]){
+  if(ev==='darkness'&&t>=te&&t<te+VISION_REACT[ev][2])dim=true;
+  if(ev==='bright_flash'&&t>=te&&t<te+0.25)flash=true;}
+ return [dim,flash];}
+function svGlyph(ev){return (ev==='object_shown'||ev==='unknown_object')?'object':'person';}
+// 单眼视图:projectPx 同式投影(640px 图宽缩放到画布),目标简笔图标大小 ∝1/dist(演示层缩放)
+function svDrawEye(cv,eye,tgt,dim,flash){
+ const g=cv.getContext('2d'),W=cv.width,H=cv.height;
+ g.fillStyle='#0a1322';g.fillRect(0,0,W,H);
+ g.strokeStyle='rgba(44,62,98,.8)';g.lineWidth=1;
+ g.beginPath();g.moveTo(0,H*0.78);g.lineTo(W,H*0.78);g.stroke();          // 地平线
+ g.setLineDash([2,4]);g.strokeStyle='rgba(255,176,97,.35)';
+ g.beginPath();g.moveTo(W/2,0);g.lineTo(W/2,H);g.stroke();g.setLineDash([]); // 光轴(图像中心)
+ const xPx=projectPx(tgt.bearing,tgt.dist,eye);                           // 同式投影(像素)
+ const x=xPx*W/STEREO.IMG_W_PX,base=H*0.78;
+ const s=clampN(64/Math.max(tgt.dist,STEREO_MIN_DEPTH_M),10,100);         // 近大远小(演示层缩放)
+ g.strokeStyle='#2fe6cf';g.lineWidth=1.5;
+ if(svGlyph(svIcon)==='object'){                                          // 物体:方块(unknown 加 ?)
+  const a=s*0.5,oy=base-s*0.55;
+  g.fillStyle='rgba(47,230,207,.15)';g.fillRect(x-a/2,oy-a/2,a,a);
+  g.strokeRect(x-a/2,oy-a/2,a,a);
+  if(svIcon==='unknown_object'){g.fillStyle='#ffb061';
+   g.font=Math.max(9,a*0.6).toFixed(0)+'px Consolas,monospace';g.textAlign='center';
+   g.fillText('?',x,oy+a*0.22);g.textAlign='left';}
+ }else{                                                                   // 人形:头+肩+躯干+双腿简笔
+  const r=s*0.14,hy=base-s+r;
+  g.beginPath();g.arc(x,hy,r,0,Math.PI*2);g.stroke();
+  g.beginPath();g.moveTo(x,hy+r);g.lineTo(x,base-s*0.28);
+  g.moveTo(x-s*0.22,hy+r*2.2);g.lineTo(x+s*0.22,hy+r*2.2);
+  g.moveTo(x,base-s*0.28);g.lineTo(x-s*0.14,base);
+  g.moveTo(x,base-s*0.28);g.lineTo(x+s*0.14,base);g.stroke();
+  if(svIcon==='wave_seen'){g.beginPath();g.moveTo(x+s*0.22,hy+r*2.2);g.lineTo(x+s*0.42,hy-r);g.stroke();}
+  if(svIcon==='smile_detected'){g.beginPath();g.arc(x,hy+r*0.15,r*0.5,0.15*Math.PI,0.85*Math.PI);g.stroke();}
+  if(svIcon==='fast_approach'){g.strokeStyle='rgba(255,107,107,.8)';g.beginPath();
+   g.moveTo(x-s*0.5,hy);g.lineTo(x-s*0.3,hy);
+   g.moveTo(x-s*0.55,hy+s*0.3);g.lineTo(x-s*0.35,hy+s*0.3);g.stroke();}}
+ if(dim){g.fillStyle='rgba(0,0,0,.62)';g.fillRect(0,0,W,H);}              // darkness:画面调暗
+ if(flash){g.fillStyle='rgba(255,255,255,.75)';g.fillRect(0,0,W,H);}      // bright_flash:白闪
+ g.fillStyle='rgba(138,152,182,.9)';g.font='10px Consolas,monospace';
+ g.fillText(eye<0?'左眼 L':'右眼 R',5,12);
+ g.fillText('x='+xPx.toFixed(1)+'px',5,H-5);
+ cv.dataset.x=xPx.toFixed(2);}                                            /* 左右投影 x(供验证/悬停查看) */
+function svCv(){if(!svLC){svLC=$('svL');svRC=$('svR');}return !!(svLC&&svRC);}
+function svDraw(name,t){
+ if(!svCv())return;
+ const tgt=targetAt(name,t),df=svDimFlash(name,t);
+ svDrawEye(svLC,-1,tgt,df[0],df[1]);svDrawEye(svRC,1,tgt,df[0],df[1]);
+ $('svRead').textContent=`dist=${tgt.dist.toFixed(2)} m · disparity=${disparityPx(tgt.dist).toFixed(1)}px · `+
+  `vergence=${vergenceDeg(tgt.dist).toFixed(2)}° ·(z=f·B/d 同式)· bearing=${tgt.bearing.toFixed(1)}° · `+
+  `眼球联动 ${svEye.y.toFixed(2)}`;}
+function svDrawIdle(){
+ if(!svCv())return;
+ for(const pair of [[svLC,-1],[svRC,1]]){const cv=pair[0],g=cv.getContext('2d'),W=cv.width,H=cv.height;
+  g.fillStyle='#0a1322';g.fillRect(0,0,W,H);
+  g.fillStyle='rgba(138,152,182,.7)';g.font='10px Consolas,monospace';
+  g.fillText(pair[1]<0?'左眼 L':'右眼 R',5,12);g.fillText('未播放',W/2-18,H/2);
+  delete cv.dataset.x;}}
+// 逐帧推进(rAF 时间轴):targetAt 更新画面,eventsBetween 派发事件;急停停止播放并清画面
+function svTick(now){
+ if(!svScene)return;
+ if(estop){svStop('已被急停打断(画面已清)。',true);return;}
+ const name=svScene.name,t=(now-svScene.t0)/1000;
+ for(const r of eventsBetween(name,svScene.lastT,t))svDispatch(r,t);
+ svScene.lastT=t;
+ svDraw(name,t);
+ const dur=sceneDuration(name);
+ $('svST').textContent=`▶ 播放「${svSceneZh(name)}」 ${Math.min(t,dur).toFixed(1)}/${dur.toFixed(1)}s`+
+  `(targetAt 插值 · eventsBetween (t0,t1] 派发)`;
+ if(t>=dur)svStop('播放完成 ✓(表情收尾在既有包络管线中继续)');}   /* 播完自动停,保留末帧画面 */
+function buildStereo(){
+ const r=$('svScenes');
+ for(const [k,zh] of SV_SCENE_ZH){const b=document.createElement('button');
+  b.className='eb';b.id='sv_'+k;b.textContent=zh;
+  b.title=`VISION_SCENES.${k}:`+VISION_SCENES[k].map(e=>e[0]+'s '+e[1]).join(' → ')+
+   '(stereo_vision 真值;dist/bearing 线性插值)';
+  b.onclick=()=>svStart(k);r.appendChild(b);}
+ const stop=document.createElement('button');
+ stop.className='eb';stop.id='svStopBtn';stop.textContent='⏹ 停止';
+ stop.onclick=()=>svStop('已停止。');
+ r.appendChild(stop);
+ svDrawIdle();}
+
+/* ===== 遥测健康分析(与 telemetry_health.py 逐行同式:分级/滑窗/趋势/堵转/疲劳/评分/评级/建议) ===== */
+// 单值三级告警:high=越高越糟(边界含等号,同 health_monitor);band=|值−标称|/标称 相对偏差分级
+function classifyMetric(name,value){
+ const th=HEALTH_THR[name],v=+value;
+ if(th.kind==='high'){
+  if(v>=th.crit)return 'crit';
+  if(v>=th.warn)return 'warn';
+  return 'ok';}
+ const dev=Math.abs(v-th.nominal)/th.nominal;
+ if(dev>=th.crit)return 'crit';
+ if(dev>=th.warn)return 'warn';
+ return 'ok';}
+/* 健康分析 state:各 metric 一条 [t_s,value] 滑窗 + 疲劳度累计(同 new_state) */
+const health={win:{},fatigue:0};
+for(const k in HEALTH_THR)health.win[k]=[];
+// 压入一帧样本并淘汰早于 now−WINDOW_S 的旧样本(边界:恰好 WINDOW_S 前的样本淘汰,同 push_sample)
+function healthPush(sample,nowS){
+ const cutoff=nowS-HEALTH_SCORE.WINDOW_S;
+ for(const name in health.win){const win=health.win[name];
+  if(name in sample&&sample[name]!=null)win.push([nowS,+sample[name]]);
+  while(win.length&&win[0][0]<=cutoff)win.shift();}}
+// 最小二乘趋势斜率:slope = Σ(t−t̄)(v−v̄)/Σ(t−t̄)²(样本<2 或无时间跨度返回 0)
+function lsqSlope(win){
+ const n=win.length;
+ if(n<2)return 0.0;
+ let tm=0,vm=0;
+ for(const [t,v] of win){tm+=t;vm+=v;}
+ tm/=n;vm/=n;
+ let num=0,den=0;
+ for(const [t,v] of win){num+=(t-tm)*(v-vm);den+=(t-tm)*(t-tm);}
+ return den<=0?0.0:num/den;}
+// 各 metric 窗口统计(空窗不出现,同 window_stats)
+function healthStats(){
+ const out={};
+ for(const name in health.win){const win=health.win[name];
+  if(!win.length)continue;
+  const vals=win.map(x=>x[1]);
+  out[name]={mean:vals.reduce((a,b)=>a+b,0)/vals.length,peak:Math.max(...vals),
+   slope:lsqSlope(win),n:vals.length};}
+ return out;}
+// 堵转三条件:残差>5° 且 电流≥0.48A(额定×80%)且 持续>0.5s(同 detect_stall)
+function detectStall(cmd,fb,current,dur){
+ return Math.abs(cmd-fb)>HEALTH_SCORE.STALL_RESIDUAL_DEG
+  &&current>=HEALTH_SCORE.STALL_CURRENT_A&&dur>HEALTH_SCORE.STALL_DUR_S;}
+// 疲劳度累计:fatigue += duty × 2^((T−40)/10) × dt(阿伦尼乌斯直觉的演示层简化,同 accumulate_fatigue)
+function accumulateFatigue(fatigue,duty,tempC,dtS){
+ duty=Math.min(Math.max(duty,0),1);
+ dtS=Math.max(dtS,0);
+ const weight=Math.pow(2,(tempC-HEALTH_SCORE.FATIGUE_REF_TEMP_C)/HEALTH_SCORE.FATIGUE_TEMP_DOUBLE_C);
+ return fatigue+duty*weight*dtS;}
+// 综合健康评分 0~100:告警扣分(最新值分级)→ 温度趋势扣分 → 疲劳按占比扣分(同 health_score)
+function healthScoreCalc(){
+ let score=100.0;
+ const stats=healthStats();
+ for(const name in health.win){const win=health.win[name];
+  if(!win.length)continue;
+  const lv=classifyMetric(name,win[win.length-1][1]);
+  if(lv==='crit')score-=HEALTH_SCORE.CRIT_PENALTY;
+  else if(lv==='warn')score-=HEALTH_SCORE.WARN_PENALTY;}
+ const st=stats.servo_temp_c;
+ if(st&&st.slope>HEALTH_SCORE.TEMP_TREND_WARN_C_PER_S)score-=HEALTH_SCORE.TREND_PENALTY;
+ const ratio=Math.min(health.fatigue/HEALTH_SCORE.FATIGUE_SERVICE_THRESHOLD,1);
+ if(ratio>0)score-=ratio*HEALTH_SCORE.FATIGUE_PENALTY_MAX;
+ return Math.min(Math.max(score,0),100);}
+function scoreToGrade(s){
+ if(s>=HEALTH_SCORE.GRADE_A_MIN)return 'A';
+ if(s>=HEALTH_SCORE.GRADE_B_MIN)return 'B';
+ if(s>=HEALTH_SCORE.GRADE_C_MIN)return 'C';
+ return 'D';}
+// 维护建议(顺序确定:告警区 metric → 温度趋势 → 疲劳达阈,文案同 advise)
+function healthAdvise(){
+ const out=[],stats=healthStats();
+ for(const name in HEALTH_THR){const th=HEALTH_THR[name],win=health.win[name];
+  if(!win.length)continue;
+  const v=win[win.length-1][1],lv=classifyMetric(name,v);
+  if(lv==='crit')out.push(`${th.label}处于危急区(${v.toFixed(2)}${th.unit}),建议立即降载并检查硬件`);
+  else if(lv==='warn')out.push(`${th.label}进入告警区(${v.toFixed(2)}${th.unit}),建议降低负载并持续观察`);}
+ const st=stats.servo_temp_c;
+ if(st&&st.slope>HEALTH_SCORE.TEMP_TREND_WARN_C_PER_S)
+  out.push(`舵机温度趋势上行(+${st.slope.toFixed(2)}℃/s),建议降低占空比`);
+ if(health.fatigue>=HEALTH_SCORE.FATIGUE_SERVICE_THRESHOLD)
+  out.push(`疲劳度累计 ${health.fatigue.toFixed(0)} 已达维护阈值 ${HEALTH_SCORE.FATIGUE_SERVICE_THRESHOLD.toFixed(0)},建议安排维护保养`);
+ return out;}
+/* —— 演示注入(演示层异常注入,非真故障;标注见健康卡)与堵转判定态 —— */
+const inject={tempUntil:0,tempExtra:0,stallUntil:0,stallT0:0};
+let healthStall=false;
+
+/* ===== 轨迹整形(与 trajectory_shaping.py 逐行同式:rate_limit/trapezoid/scurve 逐 tick 推进) ===== */
+// 现行纯限速(与固件 servo_control_tick 逐 tick 同义):pos += clamp(err, ±max_rate·dt)
+function stepRateLimitJS(st,target,dt){
+ const pos=st.pos;
+ if(dt<=0)return {pos:pos,vel:st.vel||0,acc:0};   /* 防护:非法 dt 原样返回 */
+ const maxStep=TRAJ_CONST.MAX_RATE_DPS*dt;
+ const err=target-pos;
+ const step=clampN(err,-maxStep,maxStep);
+ return {pos:pos+step,vel:step/dt,acc:0};}
+// 梯形/三角速度轨迹(限加速度+限速度,减速距离 v²/(2a) 提前减速,不过冲)
+function stepTrapezoidJS(st,target,dt){
+ const pos=st.pos;
+ let vel=st.vel||0;
+ if(dt<=0)return {pos:pos,vel:vel,acc:0};
+ const maxRate=TRAJ_CONST.MAX_RATE_DPS,maxAccel=TRAJ_CONST.MAX_ACCEL_DPS2;
+ const err=target-pos;
+ /* 1) 期望速度:朝目标,大小 = min(限速, 减速安全速度 sqrt(2·a·|err|)) */
+ let vDes=Math.sqrt(2.0*maxAccel*Math.abs(err));
+ if(vDes>maxRate)vDes=maxRate;
+ if(err<0)vDes=-vDes;
+ /* 2) 加速度限制:|Δvel| ≤ a·dt */
+ const dvMax=maxAccel*dt;
+ vel=vel+clampN(vDes-vel,-dvMax,dvMax);
+ /* 3) 速度硬限幅(双保险):保证 |Δpos|/dt ≤ max_rate */
+ vel=clampN(vel,-maxRate,maxRate);
+ /* 4) 本 tick 将到达/越过目标 → 精确落点,速度清零 */
+ const step=vel*dt;
+ if((err>=0&&step>=err)||(err<=0&&step<=err))return {pos:target,vel:0,acc:0};
+ return {pos:pos+step,vel:vel,acc:0};}
+// S 曲线(限 jerk):决策一律基于"acc 先按 jerk 卸到 0"的预测状态;速度硬限幅不回写 acc
+function stepScurveJS(st,target,dt){
+ const pos=st.pos;
+ let vel=st.vel||0,acc=st.acc||0;
+ if(dt<=0)return {pos:pos,vel:vel,acc:acc};
+ const jerk=TRAJ_CONST.MAX_JERK_DPS3,maxRate=TRAJ_CONST.MAX_RATE_DPS,maxAccel=TRAJ_CONST.MAX_ACCEL_DPS2;
+ const tgt=target;
+ /* 到位判定:位置/速度/加速度都已收敛 → 精确清零锁定(|Δacc| ≤ jerk·dt 仍成立) */
+ if(Math.abs(tgt-pos)<=TRAJ_CONST.ARRIVE_POS_EPS&&Math.abs(vel)<=TRAJ_CONST.ARRIVE_VEL_EPS
+    &&Math.abs(acc)<=jerk*dt)return {pos:tgt,vel:0,acc:0};
+ /* 1) 预测状态:acc 卸到 0(耗时 T=|acc|/jerk)期间不可避免的前冲位移与速度增量 */
+ const tU=Math.abs(acc)/jerk;
+ const sg=acc>=0?1.0:-1.0;
+ const pPred=pos+vel*tU+acc*tU*tU/2.0-sg*jerk*tU*tU*tU/6.0;
+ const vPred=vel+sg*acc*acc/(2.0*jerk);
+ const e=tgt-pPred;
+ /* 2) 期望速度:v_brake(d)=a·(sqrt(c²+2d/a)−c),c=a/(2·jerk)+3·dt 离散化余量;
+    另加 |e|/dt 线性项消除近目标 sqrt 无穷斜率引起的极限环 */
+ const c=maxAccel/(2.0*jerk)+3.0*dt;
+ let vMag=maxAccel*(Math.sqrt(c*c+2.0*Math.abs(e)/maxAccel)-c);
+ const lin=Math.abs(e)/dt;
+ if(lin<vMag)vMag=lin;
+ if(vMag>maxRate)vMag=maxRate;
+ const vDes=e>=0?vMag:-vMag;
+ /* 3) 期望加速度:一拍拉平预测速度误差(deadbeat)限 ±a;加加速度限制 |Δacc| ≤ jerk·dt */
+ const aDes=clampN((vDes-vPred)/dt,-maxAccel,maxAccel);
+ const daMax=jerk*dt;
+ acc=acc+clampN(aDes-acc,-daMax,daMax);
+ /* 4) 速度推进+硬限幅(双保险;不回写 acc,与固件限速兜底同义,加速度连续性不受影响) */
+ vel=clampN(vel+acc*dt,-maxRate,maxRate);
+ /* 5) 位置推进(不做越过即落点硬 snap,避免 acc 阶跃;由到位判定收敛清零) */
+ return {pos:pos+vel*dt,vel:vel,acc:acc};}
+const TRAJ_STEPPERS={rate_limit:stepRateLimitJS,trapezoid:stepTrapezoidJS,scurve:stepScurveJS};
+let trajProfile='rate_limit';   /* 当前轨迹 profile(默认 rate_limit,保持现状) */
+/* 示波器三 profile 对比仿真态(选中通道各自推进,同一有效目标) */
+const scopeSim={rate_limit:{pos:0,vel:0,acc:0},trapezoid:{pos:0,vel:0,acc:0},scurve:{pos:0,vel:0,acc:0}};
+function scopeSimReset(){
+ const p=(scopeCh&&S[scopeCh])?S[scopeCh].a:0;
+ for(const k in scopeSim){scopeSim[k].pos=p;scopeSim[k].vel=0;scopeSim[k].acc=0;}}
+function setProfile(p){
+ if(!TRAJ_STEPPERS[p])return;
+ trajProfile=p;
+ for(const k in TRAJ_STEPPERS){const b=$('pf_'+k);if(b)b.classList.toggle('on',k===p);}
+ for(const n of PANEL)S[n].acc=0;   /* 切换即从当前 pos/vel 连续接管;加速度状态清零 */
+ const el=$('sProf');
+ if(el)el.textContent=p;}
+
+/* ===== 协议 v2 数据帧构造(与 servo_protocol.encode(ver=2) 同式) ===== */
+function crc16(bytes){let c=PROTO.CRC16_INIT;
+ for(const b of bytes){c^=(b&0xFF)<<8;
+  for(let i=0;i<8;i++)c=(c&0x8000)?(((c<<1)^PROTO.CRC16_POLY)&0xFFFF):((c<<1)&0xFFFF);}
+ return c&0xFFFF;}
+function buildFrame(cmds,seq){ // {id:角度°} → v2 数据帧字节数组(id 升序,角度百分度大端)
+ const ids=Object.keys(cmds).map(Number).sort((x,y)=>x-y);
+ const payload=[PROTO.VER2,seq&0xFF,ids.length];
+ for(const id of ids){let cd=Math.round(cmds[id]*PROTO.ANGLE_SCALE);
+  cd=Math.max(0,Math.min(PROTO.ANGLE_MAX_CDEG,cd));payload.push(id,(cd>>8)&0xFF,cd&0xFF);}
+ const c=crc16(payload);return [PROTO.SOF,...payload,(c>>8)&0xFF,c&0xFF];}
+// 0xC3 控制帧(v2 固定 6 字节,与 servo_protocol.encode_estop 同式):
+// [CTRL_SOF][VER2][CMD_ESTOP][ARG][CRC16BE],CRC 覆盖 VER..ARG
+function buildCtrlFrame(on){const payload=[PROTO.VER2,CTRL.CMD_ESTOP,on?1:0];
+ const c=crc16(payload);return [CTRL.CTRL_SOF,...payload,(c>>8)&0xFF,c&0xFF];}
+// 上电自检:CRC16 金标向量 "123456789"→0x29B1;映射两枚金标同后端单测;
+// 混合金标 joy:0.6+surprise:0.4 → AU12=0.54/AU5=0.28(同 test_emotion_mix);
+// 耦合金标 {AU12:0.9} → 协同 AU6=0.54(同 test_expression_coupling 的 Duchenne 联动)
+function selfCheck(){
+ const gold=crc16('123456789'.split('').map(ch=>ch.charCodeAt(0)))===0x29B1;
+ const mix=mixSpec('joy:0.6+surprise:0.4');
+ const mixOk=Math.abs(mix.AU12-0.54)<1e-9&&Math.abs(mix.AU5-0.28)<1e-9;
+ const co=coordinateAU({AU12:0.9},new Set());
+ const coOk=Math.abs(co.AU6-0.54)<1e-9&&Math.abs(co.AU12-0.9)<1e-9;
+ // 扩展状态库抽检:10 态齐全 + terrified.AU5=0.9(同 EXTENDED_PRESETS 单测锁定值)
+ const extOk=Object.keys(EXT_PRESETS).length===10&&Math.abs(EXT_PRESETS.terrified.AU5-0.9)<1e-9;
+ // 心境金标:joy 强度 1 驱动 1s → pleasure=0.8(step_mood 同式);唤醒 +1 时眨眼间隔×0.6/扫视×1.5
+ const mm=moodToModulation({pleasure:0,arousal_bias:1,dominance:0});
+ const moodOk=Math.abs(stepMood({pleasure:0,arousal_bias:0,dominance:0},'joy',1.0,1.0).pleasure-0.8)<1e-9
+  &&Math.abs(mm.blink_interval_scale-0.6)<1e-9&&Math.abs(mm.saccade_rate_scale-1.5)<1e-9;
+ // 对话金标:「你真棒」→ praised;两次 joke(t=3/3.1)置信 1.4≥1 且驻留满 2s → 迁移 joy
+ let ds=initAffect(0);ds=stepAffect(ds,'joke',3.0);ds=stepAffect(ds,'joke',3.1);
+ const daffOk=extractEvents('你真棒')[0]==='praised'&&ds.current==='joy';
+ // 健康金标:电流 0.6×0.9A 恰达 CRIT(边界含等号)、12.34V 落 OK 区(同后端单测样例)、85 分=A
+ const hlOk=classifyMetric('servo_current_a',0.6*0.90)==='crit'
+  &&classifyMetric('battery_v',12.34)==='ok'&&scoreToGrade(85)==='A';
+ // 轨迹金标:三 profile 对 90° 阶跃按固件节拍仿真——任意 tick |Δpos|≤0.5°(限速不变量)且不过冲
+ let trajOk=true;
+ for(const pk in TRAJ_STEPPERS){let stt={pos:0,vel:0,acc:0};
+  for(let i=0;i<600&&trajOk;i++){const ns=TRAJ_STEPPERS[pk](stt,90,1/TRAJ_CONST.CTRL_HZ);
+   if(Math.abs(ns.pos-stt.pos)>0.5+1e-9||ns.pos>90+0.01)trajOk=false;
+   stt=ns;}}
+ // 自然度金标(3 枚,同 test_naturalness/check_alignment 口径):hash01('gold') FNV-1a 全路径、
+ // asymmetry_pair('AU12',1) 左右增益对、reaction_delay(1) 类人延迟——JS Math.imul 镜像逐位对齐
+ const natAP=asymmetryPair('AU12',1);
+ const natHashOk=Math.abs(hash01('gold')-0.8863162116613239)<1e-9;
+ const natAsymOk=Math.abs(natAP[0]-1.0628588340803982)<1e-9&&Math.abs(natAP[1]-0.937141165919602)<1e-9;
+ const natDelayOk=Math.abs(reactionDelay(1)-0.20511503914138302)<1e-9;
+ console.assert(natHashOk,'自然度金标失败:hash01("gold")≠0.8863162116613239');
+ console.assert(natAsymOk,'自然度金标失败:asymmetry_pair("AU12",1)≠(1.0628588340803982,0.937141165919602)');
+ console.assert(natDelayOk,'自然度金标失败:reaction_delay(1)≠0.20511503914138302');
+ // 表情变体金标(3 枚,同 test_expression_variants 分档边界/逐值口径):u=0.5 恰落含蓄档(左闭右开);
+ // u=0.9 落强化档且 joy 强化档 AU12=1.0(开怀);扩展态 proud 强化档 AU12=0.7(同表同口径)
+ const varSub=variantFor('joy',0.5),varInt=variantFor('joy',0.9);
+ const varExt=variantFor('proud',0.9);
+ const varSubOk=varSub[0]==='subtle';
+ const varIntOk=varInt[0]==='intense'&&Math.abs(varInt[1].AU12-1.0)<1e-9;
+ const varExtOk=varExt[0]==='intense'&&Math.abs(varExt[1].AU12-0.7)<1e-9;
+ console.assert(varSubOk,"表情变体金标失败:variantFor('joy',0.5)[0]≠'subtle'");
+ console.assert(varIntOk,"表情变体金标失败:variantFor('joy',0.9) 应落强化档且 AU12=1.0");
+ console.assert(varExtOk,"表情变体金标失败:variantFor('proud',0.9) 应落强化档且 AU12=0.7");
+ // 双目视觉金标(3 枚,同 stereo_vision 口径):z=1m 视差 d=f·B/z=37.12px、会聚角
+ // 2·atan(B/2/z)≈3.322085°、person_close@0.5m 距离调制 gain 钳上限 1.5 → intensity=0.6×1.5
+ const svDispOk=Math.abs(disparityPx(1.0)-37.12)<1e-9;
+ const svVergOk=Math.abs(vergenceDeg(1.0)-3.322085)<1e-3;
+ const svReactOk=reactToEvent('person_close',0.5).intensity===Math.min(1,0.6*1.5);
+ console.assert(svDispOk,'双目金标失败:disparityPx(1.0)≠37.12');
+ console.assert(svVergOk,'双目金标失败:vergenceDeg(1.0)≉3.322085(1e-3)');
+ console.assert(svReactOk,"双目金标失败:reactToEvent('person_close',0.5).intensity≠min(1,0.6×1.5)");
+ return gold && mixOk && coOk && extOk && moodOk && daffOk && hlOk && trajOk &&
+  natHashOk && natAsymOk && natDelayOk && varSubOk && varIntOk && varExtOk &&
+  svDispOk && svVergOk && svReactOk &&
+  Math.abs(mapChannel(1.0,CH.AU12)-125)<1e-9 && Math.abs(mapChannel(0,CH.AU26)-90)<1e-9;}
+
+/* ===== 舵机状态:目标角(滑杆)→ 限速逐帧逼近 → 实际角(驱动 3D 与下发帧) ===== */
+const S={}; for(const n of PANEL) S[n]={t:mapChannel(0,CH[n]),a:mapChannel(0,CH[n]),v:0,acc:0};   /* acc:轨迹整形加速度状态 */
+let traj=null;   // 颈部轨迹播放态 {ch,keys,t0}
+const $=id=>document.getElementById(id);
+
+/* ===== 急停/hold 态(语义同 firmware/servo_controller.c servo_set_estop/servo_set_target) ===== */
+let estop=false, hold=false;   // 急停锁存 / 释放后 hold 态(等第一帧新数据帧)
+let curEmo=null, inten=1;      // 当前选中情绪 与 情绪强度(0..1)
+/* ===== 分层状态(页面内部结构与后端分层架构同构) ===== */
+let emoCur={};                 // L0 情绪层当前 AU 贡献(含强度;滑杆值 = 手动基座 + emoCur)
+let curEmoAU=null,curEmoLabel='',curEmoKind=null;  // 当前情绪 AU 源(preset/mix/custom),供强度重算
+let couplingOn=true;           // ② 耦合约束层开关(默认开,与 C++ 引擎一致)
+const MUTE={L0:false,L1:false,L2:false,L3:false,idle:false};   // 分层 mute(演示工具)
+const FACIAL=PANEL.filter(n=>!n.startsWith('NECK_'));          // 面部 15 路
+const COUPLE_AU=FACIAL.filter(n=>n!=='AU_BLINK');  // 参与耦合的 FACS AU(眨眼事件通道旁路)
+let behv=null;                 // ④ 行为模式 {mode,t0,clock,tSince,nodT,sayAt}
+let behvAU={},behvWave=0;      // L1 行为层本帧 AU / 告别挥手占位通道值(不在台面,仅显示)
+const behvEye={p:0,y:0};       // 思考眼动(归一化;id15/16 不在台面,仅 3D 眼骨演示层)
+let effT={},lastCoupled={},viz={};   // 合成后的有效目标角 / 耦合修正报告 / 分层贡献(供堆叠图)
+let scopeCh=null;              // 示波器选中通道
+const scopeBuf=[];             // 示波器缓冲 [{t,g,a}],仅留最近 ~5s
+
+/* ===== 增强层状态:拟真微动 / 说话演示 / 情绪包络 / 录制回放 / 遥测 ===== */
+let idleOn=true;                             // 拟真微动总开关(顶部按钮)
+const blink={phase:0,next:0,dbl:false};      // 眨眼相位:0 空闲 1 闭合中 2 睁开中
+const gaze={x:0,y:0,sx:0,sy:0,tx:0,ty:0,t:0,dur:0,next:0,mx:0,my:0,mAt:0}; // 眼神游走(deg)
+const eyeBones=[null,null];                  // [左,右] 眼骨 {b,rx,ry}(仅 3D 演示层)
+let breathCur=0,bNoise=0,bNoiseAt=0;         // 呼吸叠加量(度)与微噪声
+let talk=null;                               // 说话演示 {t0,i,visAU,lastT}
+let env=null;                                // 情绪包络 {t0,from:{ch:a},to:{ch:a}}
+const rec={on:false,t0:0,ev:[],base:null,last:null};   // 录制态
+let rep=null;                                // 回放态 {t0,i}
+let lastMoving=0,lastDtMs=16,lastSeq=-1,estopCount=0,teleAt=0;  // 遥测取材的运行态
+/* ===== 扩展状态:清醒度生理轴 / 微表情事件 / 情绪剧本 ===== */
+let arousal=1;                                // 清醒度 0..1(滑杆,默认 100%)
+let breathPhase=0;                            // 呼吸相位(积分推进,变周期不跳变)
+let droopCur=0,physioNeck=0;                  // 颈俯仰微垂缓动值 / 生理轴总叠加量(度,同呼吸层)
+const doze={phase:0,t0:0,next:0};             // 打盹点头:清醒度<20% 随机触发(8–15s),或剧本 doze
+const micros=[];                              // 活跃微表情事件 [{au,dur,t0,sigh}](可连点叠加)
+let microAU={},sighCur=0;                     // 本帧 L1 微表情 AU / 叹气单次呼吸叠加量(度)
+let script=null,ramp=null;                    // 剧本播放态 {items,i,t0,dur} / 清醒度渐变 {from,to,t0,over}
+function idleActive(){return idleOn&&!estop&&!hold;}
+// 眨眼间隔:指数分布,同 gen_blink_schedule(均值 4.0s 为后端锁定值;×(0.4+0.6×清醒度)
+// 为演示层清醒度系数——低清醒眨眼更频繁;×心境 blink_interval_scale(mood_to_modulation,
+// 唤醒高间隔变短;中性心境=1 行为不变);下限 MIN_INTERVAL 不变)
+function expInterval(){
+ const mean=BLINK.MEAN_INTERVAL*(AROUSAL_CONST.BLINK_SCALE_MIN+
+  (1-AROUSAL_CONST.BLINK_SCALE_MIN)*arousal)*moodMod.blink_interval_scale;   // blink_interval_scale 同式
+ return Math.max(BLINK.MIN_INTERVAL,-mean*Math.log(1-Math.random()));}
+// 用户产生"新数据帧"(拖滑杆/垫/点预设/回中):急停中忽略指令(同固件,不暂存);
+// hold 态收到第一帧新数据即退出 hold,恢复跟随(限速插值天然平滑)。
+function userCommand(){
+ if(estop)return false;
+ if(hold){hold=false;setLink();}
+ return true;}
+function setLink(){const el=$('sLink');
+ if(estop){el.textContent='急停中(0xC3 estop=on)';el.style.color='var(--red)';}
+ else if(hold){el.textContent='hold:等待新数据帧';el.style.color='var(--amber)';}
+ else if(talk){el.textContent='说话演示中(viseme 调度)';el.style.color='var(--teal)';}
+ else if(behv){el.textContent='行为模式:'+behv.mode;el.style.color='var(--teal)';}
+ else if(rep){el.textContent='回放中(经限速管线)';el.style.color='var(--teal)';}
+ else if(rec.on){el.textContent='⏺ 录制中 · 数据流';el.style.color='var(--amber)';}
+ else{el.textContent='数据流';el.style.color='var(--green)';}}
+
+/* ===== 控件构建 ===== */
+function buildEmo(){const r=$('emoRow');
+ for(const [k,zh] of EMO){const b=document.createElement('button');b.className='eb';b.id='e_'+k;b.textContent=zh;
+  // 自然度层反应延迟只包手动预设点击(对话状态机/剧本走 applyEmotion* 直连,未接,防双重延迟);
+  // 表情变体同理只接手动点击(基础预设经 applyEmotionVariant、扩展态经 applyExtVariant 选档),
+  // 关(默认)= 原预设直达,现状零改变
+  b.onclick=()=>natDelayed(()=>applyEmotionVariant(k));r.appendChild(b);}}
+function buildNeck(){const r=$('neckRow');
+ for(const [zh,ch,keys] of NECK_MOVES){const b=document.createElement('button');b.className='eb';b.textContent='▶ '+zh;
+  b.onclick=()=>{if(!userCommand())return;traj={ch,keys,t0:performance.now()};};r.appendChild(b);}}
+// 颈部 2D 操控垫:横=NECK_YAW、纵=NECK_PITCH(各映射 min..max),拖垫与滑杆双向同步
+function buildPad(host){
+ const cy=CH.NECK_YAW,cp=CH.NECK_PITCH;
+ const w=document.createElement('div');w.id='padWrap';
+ w.innerHTML=`<canvas id="pad" width="220" height="220"></canvas>
+  <div class="padlbl">2D 操控垫:横=NECK_YAW ${cy.min}–${cy.max}° · 纵=NECK_PITCH ${cp.min}–${cp.max}°(上=抬头)<br>
+   十字准星=目标角 · 圆点=实际角(限速追赶)· NECK_ROLL 仍用滑杆</div>`;
+ host.appendChild(w);
+ const pad=w.querySelector('#pad');let drag=false;
+ const set=e=>{if(!userCommand())return;
+  const r=pad.getBoundingClientRect();
+  const fx=clampN((e.clientX-r.left)/r.width,0,1),fy=clampN((e.clientY-r.top)/r.height,0,1);
+  S.NECK_YAW.t=cy.min+fx*(cy.max-cy.min);
+  S.NECK_PITCH.t=cp.max-fy*(cp.max-cp.min);
+  $('in_NECK_YAW').value=S.NECK_YAW.t;$('in_NECK_PITCH').value=S.NECK_PITCH.t;
+  if(traj&&(traj.ch==='NECK_YAW'||traj.ch==='NECK_PITCH'))traj=null;};
+ pad.addEventListener('pointerdown',e=>{drag=true;pad.setPointerCapture(e.pointerId);set(e);});
+ pad.addEventListener('pointermove',e=>{if(drag)set(e);});
+ pad.addEventListener('pointerup',()=>{drag=false;});
+ pad.addEventListener('pointercancel',()=>{drag=false;});}
+function buildSliders(){const host=$('sliders');
+ for(const grp of GROUPS){const h=document.createElement('h2');h.textContent=grp.g;host.appendChild(h);
+  if(grp.ch.indexOf('NECK_YAW')>=0)buildPad(host);   // 颈部组头下加 2D 操控垫
+  for(const n of grp.ch){const c=CH[n];const d=document.createElement('div');d.className='sv';
+   d.dataset.ch=n;
+   d.innerHTML=`<div class="h"><span class="id">id ${c.id}</span><b>${n}</b><span class="lbl">${LBL[n]}</span>
+     <span class="cog" id="cg_${n}" style="display:none">⚙</span><span class="rd" id="rd_${n}"></span></div>
+    <input type="range" id="in_${n}" min="${c.min}" max="${c.max}" step="0.5" value="${S[n].t}">
+    <div class="bar"><div class="neu" style="left:${(c.neutral-c.min)/(c.max-c.min)*100}%"></div><div class="fl" id="fl_${n}"></div></div>
+    <div class="ticks"><span>min ${c.min}°</span><span>neutral ${c.neutral}°</span><span>max ${c.max}°</span></div>`;
+   host.appendChild(d);
+   d.addEventListener('click',()=>scopeSelect(n));   // 点击滑杆行 → 示波器切换该通道
+   d.querySelector('input').addEventListener('input',e=>{
+    if(!userCommand()){e.target.value=S[n].t;return;}   // 急停中:指令被忽略(同固件)
+    S[n].t=+e.target.value;
+    if(traj&&traj.ch===n)traj=null;   // 手动拖动接管,打断轨迹
+    env=null;                          // 手动接管:取消情绪包络过渡
+    clearEmoLayer();                   // L0 贡献重归手动基座(分层记账同步)
+    markEmo(null);});
+  }}}
+function markEmo(k){curEmo=k;for(const [e] of EMO)$('e_'+e).classList.toggle('on',e===k);
+ document.querySelectorAll('#mixBtns .eb,#cusRow .eb,#extRow .eb').forEach(b=>b.classList.remove('on'));}
+// 情绪层清空(手动接管/急停):全部激活重归"手动基座",L0 贡献归零
+function clearEmoLayer(){emoCur={};curEmoAU=null;curEmoLabel='';curEmoKind=null;
+ if(typeof natClearPending==='function'&&natDelayTimer)      // 手动接管即撤销未决的延迟点击
+  natClearPending('反应延迟:pending 被手动接管撤销');}       // (复查修复:防旧意图后至压新指令)
+// 情绪应用(通用入口:预设/复合/自定义共用):auw={AU:权重},默认经 ASD 包络过渡
+// (attack 淡入新情绪 / decay 释放旧情绪,交叉淡出;sustain=hold 语义同 envelope_gain duration≤0);
+// instant=true 即时写入(强度拖动/编辑器预览用,不重触发包络)。
+// 分解记账:滑杆激活 = 手动基座 + emoCur(L0);包络期间基座残量随 decay 同步释放。
+function applyEmotionAU(auw,label,kind,instant){
+ if(!userCommand())return false;
+ curEmoAU=auw;curEmoLabel=label;curEmoKind=kind;
+ if(instant){env=null;const to={};
+  for(const n of FACIAL){to[n]=clamp01((auw[n]||0)*inten*moodMod.intensity_gain);   /* 权重×强度×心境增益(PRESETS 真值不动;中性心境增益=1 行为不变) */
+   const t=mapChannel(to[n],CH[n]);S[n].t=t;$('in_'+n).value=t;}
+  emoCur=to;}
+ else{env={t0:performance.now(),fromBase:{},fromEmo:{},to:{}};
+  for(const n of FACIAL){const cur=invChannel(S[n].t,CH[n]);
+   env.fromEmo[n]=emoCur[n]||0;env.fromBase[n]=cur-(emoCur[n]||0);
+   env.to[n]=clamp01((auw[n]||0)*inten*moodMod.intensity_gain);}}   /* 心境增益乘入包络终值(中性=1 不变) */
+ return true;}
+function applyEmotion(k,instant){
+ if(applyEmotionAU(PRESETS[k]||{},k,'preset',instant))markEmo(k);}
+// 包络逐帧推进:目标激活 = 旧×(1−t/DECAY)₊ + 新×min(1,t/ATTACK),写回目标角(再经限速管线);
+// 同时更新 L0 记账 emoCur = 旧情绪份×fo + 新情绪×fi(基座残量 fromBase×fo 一并释放)
+function envTick(now){
+ if(!env||estop)return;
+ const t=(now-env.t0)/1000;
+ const fi=Math.min(1,t/ENV.ATTACK),fo=Math.max(0,1-t/ENV.DECAY);
+ for(const n in env.to){
+  const emoV=env.fromEmo[n]*fo+env.to[n]*fi;
+  emoCur[n]=emoV;
+  const v=mapChannel(env.fromBase[n]*fo+emoV,CH[n]);
+  S[n].t=v;$('in_'+n).value=v;}
+ if(t>=Math.max(ENV.ATTACK,ENV.DECAY))env=null;}
+
+/* ===== 3D 底座(照抄 face3d-demo:渲染器/灯光/加载链/morph 索引) ===== */
+const canvas=$('c'), st=$('st'), errEl=$('err');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+setupRealismRenderer(renderer);   // ACES 色调映射+软阴影(realism.js 共享配方)
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0c0e14);
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+const camera=new THREE.PerspectiveCamera(22,1,0.1,100); camera.position.set(0,1.6,0.78);
+addRealismLights(scene);          // 拟真化三点光(realism.js 共享配方;材质升级见 enhanceRealism)
+const controls=new OrbitControls(camera,canvas);
+controls.enablePan=false;controls.minDistance=0.45;controls.maxDistance=1.4;controls.target.set(0,1.6,0);
+function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;
+ if(canvas.width!==w||canvas.height!==h){renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}}
+
+const morphIndex={}; let headBone=null,modelRoot=null;
+function canon(n){return n.toLowerCase().replace(/_/g,'').replace(/left$/,'l').replace(/right$/,'r');}
+const ktx2=new KTX2Loader()
+ .setTranscoderPath('./vendor/libs/basis/')
+ .detectSupport(renderer);
+const loader=new GLTFLoader(); loader.setKTX2Loader(ktx2); loader.setMeshoptDecoder(MeshoptDecoder);
+// GitHub 演示仓库:不随附 3D 头模(需自行放置 models/avatar.glb,见 models/README.md);CDN 回退已移除
+const CHAIN=['models/avatar.glb'
+ ];
+function onLoaded(gltf,url){
+ const root=gltf.scene;scene.add(root);modelRoot=root;
+ enhanceRealism(root);   // 渲染级拟真化(皮肤/眼/毛发材质+阴影)
+ root.traverse(o=>{
+  if(o.isMesh&&o.morphTargetDictionary){o.frustumCulled=false;
+   for(const [name,idx] of Object.entries(o.morphTargetDictionary))
+    (morphIndex[canon(name)] ||= []).push({mesh:o,idx});}
+  if(o.isBone&&!headBone&&/head$/i.test(o.name)&&!/forehead/i.test(o.name))headBone=o;
+  // 双眼骨骼(本地头模有 LeftEye/RightEye;facecap 回退源无则保持 null,自动跳过眼神游走)
+  if(o.isBone&&/left.?eye/i.test(o.name)&&!eyeBones[0])eyeBones[0]={b:o,rx:o.rotation.x,ry:o.rotation.y};
+  if(o.isBone&&/right.?eye/i.test(o.name)&&!eyeBones[1])eyeBones[1]={b:o,rx:o.rotation.x,ry:o.rotation.y};});
+ frameHead(root);
+ const mc=Object.keys(morphIndex).length;
+ st.textContent=(url.indexOf('facecap')>=0?'facecap 人脸就绪(回退源)✓ ':'女性头模就绪(本地 CC0)✓ ')+`morph 通道 ${mc} 个`;
+ if(mc===0)errEl.textContent='⚠ 未检测到 ARKit blendshape,表情无法驱动(需带 ARKit-52 的 GLB)。';}
+function frameHead(root){
+ const box=new THREE.Box3().setFromObject(root);
+ const size=new THREE.Vector3();box.getSize(size);
+ const center=new THREE.Vector3();box.getCenter(center);
+ const tall=size.y>size.x*1.8;const focus=new THREE.Vector3();let headH;
+ if(headBone){headBone.getWorldPosition(focus);focus.y+=0.06;headH=0.26;}
+ else if(tall){focus.set(center.x,box.max.y-size.y*0.07,center.z);headH=size.y*0.16;}
+ else{focus.set(center.x,center.y+size.y*0.10,center.z);headH=size.y*0.62;}
+ const fov=camera.fov*Math.PI/180;
+ const dist=(headH/2)/Math.tan(fov/2)*1.5;
+ camera.near=Math.max(0.001,dist*0.02);camera.updateProjectionMatrix();
+ camera.position.set(focus.x,focus.y,focus.z+dist);
+ controls.target.set(focus.x,focus.y-headH*0.12,focus.z);
+ controls.minDistance=dist*0.4;controls.maxDistance=dist*5;controls.update();}
+// 本地源先 HEAD 探测:不存在(!ok 或 fetch 抛错)则跳过,不把 URL 交给 GLTFLoader,
+// 避免 models/avatar.glb 默认缺失时 loader 直接 GET 打出 404;CDN 源行为不变。
+function probeLocal(url){
+ try{return fetch(url,{method:'HEAD'}).then(r=>r.ok).catch(()=>false);}
+ catch(_){return Promise.resolve(false);}}
+function loadChain(i){
+ if(i>=CHAIN.length){errEl.textContent='本仓库未随附 3D 头模:请将兼容的 GLB 放到 models/avatar.glb(见 models/README.md)以查看 3D 效果;下方滑杆与协议帧演示不受影响。';st.textContent='';return;}
+ const url=CHAIN[i];
+ (/^https?:/i.test(url)?Promise.resolve(true):probeLocal(url)).then(ok=>{
+  if(!ok){st.textContent='该源不可用,尝试下一个头模源…';loadChain(i+1);return;}
+  loader.load(url,g=>onLoaded(g,url),
+   e=>{if(e.total)st.textContent=`加载中… ${Math.round(e.loaded/e.total*100)}%`;},
+   ()=>{st.textContent='该源不可用,尝试下一个头模源…';loadChain(i+1);});});}
+loadChain(0);
+
+/* ===== 拟真微动层:呼吸 / 自动眨眼 / 眼神微游走(急停/hold 时静止) ===== */
+// 呼吸:仅叠加在渲染/下发的实际角之上(不动用户目标值);~0.6° 正弦、周期 4s + 0.7s 重采样的微噪
+function breathTick(now,dt){
+ if(!idleActive()||MUTE.idle){breathCur=0;return;}
+ if(now-bNoiseAt>700){bNoiseAt=now;bNoise=(Math.random()*2-1)*0.08;}
+ // 频率同 idle_behavior.breathing 默认(0.25Hz,已锁定);幅度 0.6° 为演示层;
+ // 清醒度轴(同 arousal_physiology,已锁定):周期 ×breath_period_scale → 频率放缓
+ // (相位积分免跳变),幅度 ×breath_amp_scale——低清醒呼吸更深更慢;
+ // ×arb.idle:空闲层增益门控(同 arbiter 语义——说话/情绪活跃时呼吸淡出,安静后缓慢淡入)
+ breathPhase+=2*Math.PI*IDLE.BREATH_FREQ/(1+AROUSAL_CONST.BREATH_PERIOD_SLOPE*(1-arousal))*dt;
+ // ×心境 idle_breath_scale(mood_to_modulation:唤醒高呼吸变浅;中性心境=1 行为不变)
+ breathCur=(0.6*(1+AROUSAL_CONST.BREATH_AMP_SLOPE*(1-arousal))*moodMod.idle_breath_scale*Math.sin(breathPhase)+bNoise)*arb.idle;}
+// 颈部生理/微表情总叠加量(度):呼吸 + 清醒度微垂/打盹 + 叹气单次呼吸,均叠加实际角不动目标值
+function neckOverlay(){return breathCur+physioNeck+sighCur;}
+/* ===== 清醒度生理轴:颈俯仰微垂 + 打盹点头(演示层系数;急停/hold 时静止/冻结) ===== */
+function setArousal(v01){
+ arousal=clampN(v01,0,1);
+ $('arous').value=Math.round(arousal*100);$('arousV').textContent=Math.round(arousal*100)+'%';}
+let dozeSeq=0;                                 // 打盹调度序号(确定性,同 next_doze_interval)
+function dozeNextMs(now){dozeSeq++;
+ return now+(AROUSAL_CONST.DOZE_MIN_S+AROUSAL_CONST.DOZE_SPAN_S*hash01('doze',String(dozeSeq)))*1000;}
+function arousalTick(now,dt){
+ if(estop||hold)return;                        // 急停/hold:冻结当前叠加量,全部静止
+ let dz=0;
+ const A=AROUSAL_CONST;
+ if(arousal<A.DOZE_THRESHOLD&&idleActive()&&!MUTE.idle){
+  if(doze.phase===0&&now>=doze.next){doze.phase=1;doze.t0=now;}
+ }else if(doze.phase===0)doze.next=dozeNextMs(now);   // 高清醒:滚动重排下次打盹
+ if(doze.phase===1){const t=(now-doze.t0)/1000;      // doze_dip_deg 同式三段
+  if(t<A.DOZE_FALL_S)dz=-A.DOZE_DIP_DEG*Math.sin(Math.PI/2*Math.min(1,t/A.DOZE_FALL_S));
+  else if(t<A.DOZE_FALL_S+A.DOZE_RISE_S)dz=-A.DOZE_DIP_DEG*(1-(t-A.DOZE_FALL_S)/A.DOZE_RISE_S);
+  else{doze.phase=0;doze.next=dozeNextMs(now);}}     // 间隔确定性(抬升自 Math.random,可复现)
+ // 微垂 droop_target_deg,τ=DROOP_TAU_S 一阶缓动(拖滑杆不瞬跳);打盹量 dz 直接叠加保留"猛回"
+ droopCur+=(-(1-arousal)*A.NECK_DROOP_DEG-droopCur)*(1-Math.exp(-dt/A.DROOP_TAU_S));
+ physioNeck=droopCur+dz;}
+/* ===== 微表情事件:L1 快事件,ASD 快包络(同 micro_expressions.micro_gain,已锁定) ===== */
+function microGain(t,dur){
+ const atk=Math.min(MICRO_ATK,dur*0.25),dec=Math.min(MICRO_DEC,dur*0.35);
+ if(t<atk)return t/atk;
+ if(t>dur-dec)return Math.max(0,(dur-t)/dec);
+ return 1;}
+function microFire(key){
+ const m=MICRO_EVENTS.find(x=>x[0]===key);
+ if(!m||!userCommand())return;
+ micros.push({au:m[2],dur:m[3],t0:performance.now(),sigh:key==='sigh'});}
+/* —— 空闲自发微表情(同引擎 natural_micro:next_idle_micro 同式,FNV 序号确定性)—— */
+let microSeq=0,microNextAt=-1,lastEmoLvl=0,microAutoUiAt=0;
+function microAutoTick(now){
+ const el=$('microAutoTxt');
+ const idleFace=idleOn&&!estop&&!hold&&!talk&&lastEmoLvl<0.15;
+ if(!idleFace){
+  if(el&&now-microAutoUiAt>500){microAutoUiAt=now;
+   el.textContent='自发微表情:'+(idleOn?'待机(有活跃情绪/说话中,空闲后恢复)':'关(随拟真微动开关)');}
+  return;}
+ const s=now/1000;
+ const next=()=>{microSeq++;
+  microNextAt=s+Math.max(MICRO_CONST.IDLE_MIN_S,
+   -MICRO_CONST.IDLE_MEAN_S*Math.log(1-hash01('micro_iv',String(microSeq))));};
+ if(microNextAt<0)next();
+ if(s>=microNextAt){
+  const key=IDLE_MICRO_POOL[Math.floor(hash01('micro_ev',String(microSeq))*4)%4];
+  const o=Object.assign({},MICRO_AU_DUR[key]);const d=o._dur;delete o._dur;
+  micros.push({au:o,dur:d,t0:now,sigh:key==='sigh'});
+  next();}
+ if(el&&now-microAutoUiAt>500){microAutoUiAt=now;
+  el.textContent=`自发微表情:开 · 下次 ~${Math.max(0,microNextAt-s).toFixed(0)}s(seq=${microSeq},确定性可复现)`;}}
+function microTick(now){
+ microAU={};sighCur=0;
+ for(let i=micros.length-1;i>=0;i--){const m=micros[i],t=(now-m.t0)/1000;
+  if(estop||t>=m.dur){micros.splice(i,1);continue;}
+  const g=microGain(t,m.dur);
+  for(const k in m.au)microAU[k]=Math.max(microAU[k]||0,m.au[k]*g);   // 连点同 AU 取大
+  if(m.sigh)sighCur+=SIGH_AMP*Math.sin(Math.PI*Math.min(1,t/m.dur));}}  // 单次大幅呼吸(半正弦)
+/* ===== 情绪剧本:时间轴按 t 派发到既有管线(同 emotion_script.py 口径;急停/手动操作打断) ===== */
+function scriptStop(msg){
+ const was=script||ramp;
+ script=null;ramp=null;
+ $('btnScPlay').classList.remove('on');
+ if(msg&&was)$('scST').textContent=msg;}
+function scriptDispatch(a){
+ switch(a.type){
+  case 'emotion':{
+   let au=null;const label=a.label||a.name||'剧本情绪';
+   if(a.au&&typeof a.au==='object')au=cusSanitize(a.au);
+   else if(a.name&&PRESETS[a.name])au=PRESETS[a.name];
+   else if(a.name&&EXT_PRESETS[a.name])au=EXT_PRESETS[a.name];
+   else if(a.name)au=mixSpec(a.name);                       // spec 字符串兜底(同 parse_emotion_spec)
+   if(a.intensity!=null){inten=clampN(+a.intensity,0,100)/100;
+    $('inten').value=Math.round(inten*100);$('intenV').textContent=Math.round(inten*100)+'%';}
+   if(au&&applyEmotionAU(au,label,PRESETS[a.name]?'preset':'ext'))
+    markEmo(PRESETS[a.name]?a.name:null);
+   break;}
+  case 'behavior':behvStart(a.mode);break;
+  case 'micro':microFire(a.name);break;
+  case 'talk':if(!talk)startTalk();break;
+  case 'neck':{const mv=NECK_MOVES.find(x=>x[0]===a.move);
+   if(mv&&userCommand())traj={ch:mv[1],keys:mv[2],t0:performance.now()};break;}
+  case 'arousal':{
+   arousMoodDriven=false;                                    /* 剧本渐变接管 → 回退手动模式 */
+   const cb=$('arousSrc');
+   if(cb)cb.checked=false;
+   ramp={from:arousal,to:clampN(+a.to||0,0,100)/100,
+    t0:performance.now(),over:Math.max(SC_CONST.MIN_RAMP_S,+a.over||SC_CONST.MIN_RAMP_S)};break;}
+  case 'doze':doze.phase=1;doze.t0=performance.now();break;}}   // 剧本强制触发一次打盹
+function scriptPlay(){
+ if(script){scriptStop('已停止。');return;}
+ let items;
+ try{items=JSON.parse($('scIO').value);if(!Array.isArray(items))throw new Error('顶层须为数组');}
+ catch(e){$('scST').textContent='剧本 JSON 解析失败:'+e.message;return;}
+ items=items.filter(it=>it&&isFinite(+it.t)&&it.action&&typeof it.action.type==='string')
+  .sort((x,y)=>x.t-y.t);
+ if(!items.length){$('scST').textContent='剧本为空或无合法条目(格式见下方说明)。';return;}
+ if(!userCommand())return;
+ script={items,i:0,t0:performance.now(),dur:items[items.length-1].t};
+ $('btnScPlay').classList.add('on');
+ $('scST').textContent='▶ 开始播放…';}
+function scriptTick(now){
+ if(ramp){const p=Math.min(1,(now-ramp.t0)/1000/ramp.over);   // 清醒度渐变(剧本 arousal 动作)
+  setArousal(ramp.from+(ramp.to-ramp.from)*p);
+  if(p>=1)ramp=null;}
+ if(!script)return;
+ if(estop){scriptStop('已被急停打断。');return;}
+ const t=(now-script.t0)/1000;
+ while(script.i<script.items.length&&script.items[script.i].t<=t)
+  scriptDispatch(script.items[script.i++].action);
+ if(script.i>=script.items.length){script=null;$('btnScPlay').classList.remove('on');
+  $('scST').textContent='播放完成 ✓(渐变/行为收尾仍在既有管线中继续)';return;}
+ $('scST').textContent=`▶ 播放中 ${Math.min(t,script.dur).toFixed(1)}/${script.dur.toFixed(1)}s · `+
+  `已派发 ${script.i}/${script.items.length} 步`;}
+// 眨眼:事件式改写 AU_BLINK 的"有效目标"(闭合→睁开),经同一 250°/s 限速管线;
+// 85° 行程闭合约 0.34s(仅默认 rate_limit 轨迹下成立,切 trapezoid/scurve 更慢;
+// 接近真实眨眼 0.3–0.4s;真机事件通道按 CLOSE/OPEN=0.06/0.12s 曲线更快)
+function blinkTick(now){
+ if(MUTE.L3&&blink.phase){blink.phase=0;blink.dbl=false;blink.next=now+expInterval()*1000;}  // mute 中断收尾
+ if(blink.phase===0){
+  if(idleActive()&&!MUTE.L3&&now>=blink.next){blink.phase=1;blink.dbl=Math.random()<BLINK.DOUBLE_PROB;}
+  return;}
+ if(blink.phase===1&&S.AU_BLINK.a>=CH.AU_BLINK.max-0.6)blink.phase=2;          // 闭合到位 → 睁开
+ else if(blink.phase===2&&S.AU_BLINK.a<=effTarget('AU_BLINK')+0.6){             // 睁回有效目标(含清醒度眼睑基线)→ 收尾
+  blink.phase=0;
+  blink.next=now+(blink.dbl?(0.22+Math.random()*0.08):expInterval())*1000;      // 双连眨间隔同后端
+  blink.dbl=false;}}
+/* ===== ③ 分层合成(页面内部结构与后端分层架构同构):
+   基座(滑杆手动)+ L0 情绪(emoCur,含复合/包络)+ L1 行为微表情 → L2 口型接管嘴部通道 →
+   耦合约束层(协同/拮抗,同 expression_coupling)→ AU→角度映射 → L3 眨眼事件旁路直写命令角 →
+   限速管线。每帧求值一次;滑杆的用户目标值不被改写(录制语义不变)。 ===== */
+function composeTargets(){
+ // L1 = 行为模式 AU + 微表情事件 AU(同层相加;微表情快包络见 microTick)
+ const l1={};
+ if(!MUTE.L1){
+  for(const k in behvAU)l1[k]=behvAU[k];
+  for(const k in microAU)l1[k]=(l1[k]||0)+microAU[k];}
+ const raw={},base={},l0={},l2v={};
+ for(const n of FACIAL){
+  const aS=invChannel(S[n].t,CH[n]);
+  base[n]=aS-(emoCur[n]||0);                       // 手动基座 = 滑杆激活 − L0 记账
+  l0[n]=MUTE.L0?0:(emoCur[n]||0);
+  let v=base[n]+l0[n]+(l1[n]||0);
+  if(talk&&!MUTE.L2&&TALK_MOUTH.indexOf(n)>=0){v=talk.visAU[n]||0;l2v[n]=v;}  // 口型接管嘴部 5 路
+  raw[n]=v;}
+ // 耦合约束(开关默认开):域为 0..1(同后端 clamp01);负激活=反向行程,耦合未修正时原样透传
+ let coupled=null;
+ if(couplingOn)
+  {const inAU={};for(const n of COUPLE_AU)inAU[n]=clamp01(raw[n]);
+   coupled=coordinateAU(inAU,buildExempt(MUTE.L0?{}:emoCur));}
+ for(const n of FACIAL){
+  let a=raw[n];   // mapChannel 自会钳回 [min,max],激活不预截(保留 |a|>1 的行程,如 AU_BLINK 95°)
+  if(coupled&&(n in coupled)&&Math.abs(coupled[n]-clamp01(raw[n]))>1e-9)a=coupled[n];
+  effT[n]=mapChannel(a,CH[n]);
+  lastCoupled[n]=coupled?{pre:mapChannel(raw[n],CH[n]),post:effT[n]}:null;}
+ // L3 眨眼:事件通道旁路耦合,直写命令角(闭合到 max;同后端事件通道旁路 EMA 语义)
+ const blinkOn=blink.phase===1&&!MUTE.L3&&idleActive();
+ if(blinkOn)effT.AU_BLINK=CH.AU_BLINK.max;
+ // 清醒度眼睑基线:有效目标叠加 (1−arousal)×0.55 闭合量(演示层系数),经同一限速管线;
+ // 急停/hold 时不叠加(目标保持冻结位姿,全部静止)
+ const lidDroop=(!estop&&!hold)?(1-arousal)*AROUSAL_CONST.LID_CLOSE_MAX:0;   // lid_base 同式
+ if(!blinkOn&&lidDroop>0)
+  effT.AU_BLINK=mapChannel(invChannel(effT.AU_BLINK,CH.AU_BLINK)+lidDroop,CH.AU_BLINK);
+ // 颈部:NECK_PITCH 叠加 L1(点头/鞠躬),其余滑杆直通;idle 呼吸仍在限速后叠加实际角(既有语义)
+ effT.NECK_PITCH=mapChannel(invChannel(S.NECK_PITCH.t,CH.NECK_PITCH)+(l1.NECK_PITCH||0),CH.NECK_PITCH);
+ effT.NECK_YAW=S.NECK_YAW.t;effT.NECK_ROLL=S.NECK_ROLL.t;
+ // 分层贡献快照(供堆叠图;仅正向显示,颈俯仰取绝对值)
+ viz={};
+ for(const n of FACIAL){
+  if(n==='AU_BLINK'){
+   if(blinkOn)viz[n]={l3:1};
+   else{const seg={};
+    if(base[n]>0.01)seg.base=base[n];
+    if(lidDroop>0.01)seg.idle=lidDroop;          // 清醒度眼睑基线计入 idle 生理层
+    if(Object.keys(seg).length)viz[n]=seg;}
+   continue;}
+  const seg=(n in l2v)?{l2:Math.max(0,l2v[n])}
+   :{base:Math.max(0,base[n]),l0:Math.max(0,l0[n]),l1:Math.max(0,l1[n]||0)};
+  if(Object.values(seg).some(v=>v>0.01))viz[n]=seg;}
+ const npSeg={base:Math.abs(invChannel(S.NECK_PITCH.t,CH.NECK_PITCH)),
+  l1:Math.abs(l1.NECK_PITCH||0),idle:Math.abs(neckOverlay())/Math.abs(CH.NECK_PITCH.gain)};
+ if(Object.values(npSeg).some(v=>v>0.01))viz.NECK_PITCH=npSeg;}
+function effTarget(n){return effT[n]!==undefined?effT[n]:S[n].t;}
+
+/* ===== ④ 行为模式(FSM 行为搬上台面):有限时长的 L1 分层叠加,可被急停/新行为打断 ===== */
+const BEHV_MODES=[['listen','👂 倾听'],['think','🤔 思考'],['speak','🎤 说话'],
+                  ['nodback','🙂 附和'],['farewell','👋 告别']];
+function behvMark(){for(const [m] of BEHV_MODES)
+ {const b=$('bm_'+m);if(b)b.classList.toggle('on',m==='speak'?!!talk:!!(behv&&behv.mode===m));}}
+function behvStop(){
+ if(!behv)return;behv=null;behvAU={};behvWave=0;behvEye.p=0;behvEye.y=0;
+ behvMark();behvInfoLine('');setLink();}
+function behvInfoLine(extra){const el=$('behvST');if(el)el.textContent=extra;}
+function behvStart(mode){
+ if(mode==='speak'){behvStop();startTalk();behvMark();return;}   // 说话交给既有口型演示
+ if(behv&&behv.mode===mode){behvStop();return;}                  // 再点同一行为 = 停止
+ if(!userCommand())return;
+ stopTalk();
+ micros.length=0;                 // 微表情被新行为打断(同层让位)
+ behv={mode,t0:performance.now(),clock:0,tSince:0,nodT:-1e9,sayAt:-1e9};
+ behvMark();setLink();}
+// 逐帧求 L1 行为 AU(确定性,常量已锁定;方向/演示时长见演示层注明)
+function behvTick(now,dt){
+ behvAU={};behvWave=0;behvEye.p=0;behvEye.y=0;
+ if(talk)behvAU.AU12=BEHV.SPEAK_AU12;   // 说话行为:嘴角微扬(同 interaction_expression.speaking;
+                                        // 下颌占位摆动由真 viseme 调度取代)
+ if(!behv)return;
+ if(estop){behvStop();return;}
+ behv.clock+=dt;
+ const t=(now-behv.t0)/1000;
+ let msg='';
+ if(behv.mode==='listen'){
+  // 主动倾听:间隔 NOD_INTERVAL(1.8s)触发一次余弦凸起点头(时长/幅度同 Backchannel)
+  behv.tSince+=dt;
+  if(behv.tSince>=BEHV.NOD_INTERVAL){behv.tSince=0;behv.nodT=behv.clock;behv.sayAt=now;}
+  const e=behv.clock-behv.nodT;
+  behvAU.NECK_PITCH=(e>=0&&e<=BC.NOD_DUR)?NOD_SIGN*BC.NOD_AMP*Math.sin(Math.PI*e/BC.NOD_DUR):0;
+  behvAU.AU1=BEHV.LISTEN_AU1;
+  msg=`倾听中 ${(BEHV_DEMO_S-t).toFixed(0)}s`+(now-behv.sayAt<900?' · 嗯~(真机此刻发轻声"嗯")':'');
+  if(t>=BEHV_DEMO_S)behvStop();
+ }else if(behv.mode==='think'){
+  behvAU.AU1=BEHV.THINK_AU1;behvAU.AU2=BEHV.THINK_AU2;
+  behvEye.p=BEHV.THINK_EYE_PITCH;                                   // 眼上看(负=上)
+  behvEye.y=BEHV.THINK_YAW_AMP*Math.sin(behv.clock*BEHV.THINK_YAW_FREQ);  // 眼神轻游移
+  msg=`思考中 ${(BEHV_DEMO_S-t).toFixed(0)}s · 眼动走 3D 眼骨(id15/16 不在台面)`;
+  if(t>=BEHV_DEMO_S)behvStop();
+ }else if(behv.mode==='nodback'){
+  // 附和:单次点头(nod_dur/amp 同 Backchannel)+"嗯"指示
+  behvAU.NECK_PITCH=(behv.clock<=BC.NOD_DUR)?NOD_SIGN*BC.NOD_AMP*Math.sin(Math.PI*behv.clock/BC.NOD_DUR):0;
+  msg='附和:嗯~(真机同时发一声轻"嗯")';
+  if(behv.clock>BC.NOD_DUR+0.4)behvStop();
+ }else if(behv.mode==='farewell'){
+  // 告别:鞠躬半正弦 + 挥手加窗摆动(同 farewell_gesture;挥手为占位通道,不在台面)
+  if(t>FAREWELL.DURATION){behvStop();return;}
+  const ph=t/FAREWELL.DURATION;
+  behvAU.NECK_PITCH=NOD_SIGN*FAREWELL.BOW_AMP*Math.sin(Math.PI*ph);
+  behvWave=FAREWELL.WAVE_AMP*Math.sin(2*Math.PI*FAREWELL.WAVE_CYCLES*ph)*Math.sin(Math.PI*ph);
+  msg=`告别:鞠躬+挥手 wave=${behvWave.toFixed(2)}(占位通道,不在 18 路台面)`;}
+ if(behv)behvInfoLine(msg);}
+// 眼神微游走:saccade 主序反解时长 + min-jerk 轨迹 + 微扫视抖动(0.6°/0.3s,同 microsaccade
+// amp0.02×30°/unit);仅旋转 3D 眼骨——眼球属 id15/16 注视子系统,不在 18 路台面
+function saccadeDur(ampDeg){
+ const v=SACCADE.VMAX*(1-Math.exp(-Math.abs(ampDeg)/SACCADE.A0));
+ return v<=1e-9?SACCADE.PEAK_FACTOR*SACCADE.A0/SACCADE.VMAX:SACCADE.PEAK_FACTOR*Math.abs(ampDeg)/v;}
+function gazeTick(now,dt){
+ const bones=eyeBones.filter(Boolean);
+ if(!bones.length)return;
+ // L1 思考眼动 + 双目视觉注视联动叠加(演示层换算:归一化×注视通道 gain → 度;
+ // svEye.y=事件方位 bearing/30 钳 [-1,1] 的演示层映射;THINK_EYE_PITCH 负=上看)
+ const bYaw=(behvEye.y+svEye.y)*CH.AU_EYE_YAW.gain, bUp=-behvEye.p*CH.AU_EYE_PITCH.gain;
+ const wander=idleActive()&&!MUTE.idle;                 // 微游走属 idle 层(mute/急停/开关门控)
+ if(!wander&&bYaw===0&&bUp===0){for(const e of bones){e.b.rotation.x=e.rx;e.b.rotation.y=e.ry;}return;}
+ let wx=0,wy=0;
+ if(wander){
+  if(gaze.dur<=0&&now>=gaze.next){                      // 起跳新扫视(±4° 偏航 / ±2° 俯仰)
+   gaze.sx=gaze.x;gaze.sy=gaze.y;
+   gaze.tx=(Math.random()*2-1)*4;gaze.ty=(Math.random()*2-1)*2;
+   gaze.dur=saccadeDur(Math.hypot(gaze.tx-gaze.sx,gaze.ty-gaze.sy));gaze.t=0;}
+  if(gaze.dur>0){gaze.t+=dt;const s=Math.min(1,gaze.t/gaze.dur);
+   const k=10*s**3-15*s**4+6*s**5;                      // min-jerk,同 saccade_position
+   gaze.x=gaze.sx+(gaze.tx-gaze.sx)*k;gaze.y=gaze.sy+(gaze.ty-gaze.sy)*k;
+   if(s>=1){gaze.dur=0;
+    gaze.next=now+(800+Math.random()*2200)/moodMod.saccade_rate_scale;}}   /* ÷心境扫视频率缩放(唤醒高更频;中性=1 不变) */
+  if(now-gaze.mAt>300){gaze.mAt=now;gaze.mx=(Math.random()*2-1)*0.6;gaze.my=(Math.random()*2-1)*0.6;}
+  wx=(gaze.x+gaze.mx)*arb.idle;wy=(gaze.y+gaze.my)*arb.idle;}  // ×idle 增益(仲裁门控,同 arbiter)
+ const D=Math.PI/180,yw=(wx+bYaw)*D,pt=(wy+bUp)*D;
+ for(const e of bones){e.b.rotation.y=e.ry+yw;e.b.rotation.x=e.rx-pt;}}
+
+/* ===== 说话口型演示:帧调度到期生效、末帧胜出、断流老化清零(同 VisemeScheduler) ===== */
+function startTalk(){
+ if(talk){stopTalk();return;}
+ if(!userCommand())return;
+ behvStop();                       // 新行为打断旧行为(说话属 L2+L1 微笑占位)
+ talk={t0:performance.now(),i:0,visAU:{},lastT:0};
+ $('btnTalk').classList.add('on');$('btnTalk').textContent='⏹ 停止演示';behvMark();setLink();}
+function stopTalk(){
+ if(!talk)return;talk=null;
+ $('btnTalk').classList.remove('on');$('btnTalk').textContent='🎤 说话演示';behvMark();setLink();}
+function talkTick(now){
+ if(!talk)return;
+ const t=(now-talk.t0)/1000;
+ while(talk.i<TALK_LINE.length&&TALK_LINE[talk.i][2]<=t){    // 到期生效;同拍多帧时末帧胜出
+  const fr=TALK_LINE[talk.i++],m=VAU[fr[0]]||{};
+  talk.visAU={};for(const k in m)talk.visAU[k]=m[k]*fr[1];
+  talk.lastT=t;}
+ if(talk.i>=TALK_LINE.length&&t-talk.lastT>VTIME.STALE_S)stopTalk();}  // 断流老化 → 嘴部回归
+
+/* ===== 动作录制/回放:录用户目标值变化,回放经同一限速管线;导出/导入走文本框 ===== */
+function recInfo(msg){const el=$('recInfo');
+ const dur=rec.ev.length?(rec.ev[rec.ev.length-1][0]/1000).toFixed(1):'0.0';
+ el.textContent=msg||((rec.on?'⏺ 录制中':'就绪')+` · ${rec.ev.length} 事件 · ${dur}s。`+
+  '录的是用户目标值变化(时间戳+通道+值);回放经同一限速管线成形;导出/导入用文本框复制粘贴,无下载。');}
+function recStart(){if(rec.on)return;
+ rec.on=true;rec.t0=performance.now();rec.ev=[];rec.base={};rec.last={};
+ for(const n of PANEL){rec.base[n]=+S[n].t.toFixed(2);rec.last[n]=S[n].t;}   // 起始位姿快照
+ $('btnRec').classList.add('on');recInfo();setLink();}
+function recStop(){if(!rec.on)return;rec.on=false;$('btnRec').classList.remove('on');recInfo();setLink();}
+function recTick(now){
+ if(!rec.on||rep)return;
+ for(const n of PANEL){const v=S[n].t;
+  if(Math.abs(v-rec.last[n])>1e-6){rec.last[n]=v;
+   rec.ev.push([Math.round(now-rec.t0),n,+v.toFixed(2)]);
+   if(rec.ev.length>=20000){recStop();recInfo('已达 2 万事件护栏,自动停录');return;}}}}
+function stopReplay(){if(!rep)return;rep=null;$('btnPlay').classList.remove('on');setLink();}
+function startReplay(){
+ if(rep){stopReplay();return;}
+ if(!rec.base&&!rec.ev.length){recInfo('无录制数据:先 ⏺ 录制,或粘贴 JSON 后点"导入"');return;}
+ if(!userCommand())return;
+ recStop();env=null;traj=null;
+ if(rec.base)for(const n in rec.base){const c=CH[n];if(!S[n]||!c)continue;
+  S[n].t=clampN(+rec.base[n],Math.min(c.min,c.max),Math.max(c.min,c.max));$('in_'+n).value=S[n].t;}
+ rep={t0:performance.now(),i:0};
+ $('btnPlay').classList.add('on');markEmo(null);setLink();}
+function repTick(now){
+ if(!rep)return;
+ const t=now-rep.t0;
+ while(rep.i<rec.ev.length&&rec.ev[rep.i][0]<=t){
+  const e=rec.ev[rep.i++],n=e[1],c=CH[n];
+  if(S[n]&&c){S[n].t=clampN(+e[2],Math.min(c.min,c.max),Math.max(c.min,c.max));$('in_'+n).value=S[n].t;}}
+ if(rep.i>=rec.ev.length)stopReplay();}
+
+/* ===== 遥测 0x5A / 配置帧 0xB7(模拟;帧构造与 telemetry_protocol/servo_protocol 同式) ===== */
+function i16(v){v=Math.round(v);v=Math.max(-32768,Math.min(32767,v));return v&0xFFFF;}
+/* ===== 遥测健康卡渲染(1Hz,随 teleTick;折叠时只算不画) ===== */
+function healthUi(m,curA,stallOn,stallDur){
+ const sec=$('healthSec');
+ if(!sec||!sec.open)return;
+ const score=healthScoreCalc(),grade=scoreToGrade(score);
+ $('hScore').textContent=score.toFixed(1);
+ const gEl=$('hGrade');
+ gEl.textContent=grade;
+ const gc={A:'var(--teal)',B:'var(--blue)',C:'var(--amber)',D:'var(--red)'};
+ gEl.style.background=gc[grade];gEl.style.color=grade==='A'?'#04121a':'#fff';
+ const stats=healthStats(),rows=[];
+ for(const name in HEALTH_THR){const th=HEALTH_THR[name],win=health.win[name];
+  if(!win.length)continue;
+  const v=win[win.length-1][1],lv=classifyMetric(name,v),st=stats[name];
+  rows.push(`<span class="${lv}">●</span> ${th.label} ${v.toFixed(2)}${th.unit} [${lv.toUpperCase()}]`+
+   ` · 窗均 ${st.mean.toFixed(2)} 峰 ${st.peak.toFixed(2)} 斜率 ${(st.slope>=0?'+':'')+st.slope.toFixed(3)}/s(${st.n} 样本)`);}
+ rows.push(`<span class="${healthStall?'crit':'ok'}">●</span> 堵转检测 `+
+  (healthStall?`⚠ 检测到(残差 8.0°·电流 ${curA.toFixed(2)}A·持续 ${stallDur.toFixed(1)}s,演示注入)`
+   :(stallOn?`注入中(持续 ${stallDur.toFixed(1)}s,未满 ${HEALTH_SCORE.STALL_DUR_S}s 不判,滤瞬态)`
+     :'正常(残差/电流/持续三条件未同时满足)')));
+ rows.push(`<span class="ok">●</span> 疲劳度 ${health.fatigue.toFixed(1)} / 阈值 ${HEALTH_SCORE.FATIGUE_SERVICE_THRESHOLD.toFixed(0)}`+
+  `(权重 2^((T−40)/10),当前扣 ${(Math.min(health.fatigue/HEALTH_SCORE.FATIGUE_SERVICE_THRESHOLD,1)*HEALTH_SCORE.FATIGUE_PENALTY_MAX).toFixed(1)} 分)`);
+ $('hMetrics').innerHTML=rows.join('<br>');
+ const adv=healthAdvise();
+ $('hAdvice').textContent=adv.length?('维护建议:'+adv.join(';')):'维护建议:无(各指标正常)';}
+function teleTick(now){
+ if(now-teleAt<1000)return;
+ const dtTele=teleAt?Math.min((now-teleAt)/1000,5):1;       // 1Hz 节拍(标签页休眠时钳 5s)
+ teleAt=now;
+ const up=now/1000,pct=Math.max(0,100-up/120);
+ // 演示注入推进(演示层,非真故障):温度爬升 +2.5℃/s,注入结束后 −1.5℃/s 回落
+ if(now<inject.tempUntil)inject.tempExtra+=2.5*dtTele;
+ else inject.tempExtra=Math.max(0,inject.tempExtra-1.5*dtTele);
+ const stallOn=now<inject.stallUntil,stallDur=stallOn?(now-inject.stallT0)/1000:0;
+ // 诚实标注:last_seq/error_count(=急停次数)/comm_latency_ms(=渲染帧间隔)/运动通道数取自
+ // 页面运行态;温度/电池为缓变模拟量(电池基值取标称 12.0V ±5% 带内);frame_gap_count 恒 0
+ // (模拟器数据流不丢帧)。非真硬件。
+ const m={servo_temp_c:32+0.4*lastMoving+1.5*Math.sin(up/60)+inject.tempExtra,
+  cpu_temp_c:45+2*Math.sin(up/97),skin_temp_c:29.5+0.5*Math.sin(up/240),
+  battery_pct:pct,battery_v:12.4-0.8*(1-pct/100),
+  error_count:estopCount,comm_latency_ms:Math.min(999,Math.round(lastDtMs)),
+  last_seq:lastSeq,frame_gap_count:0};
+ // servo_current_a 不在 0x5A 帧内(驱动侧采样口径,演示合成):随运动通道数缓升;堵转注入时大电流
+ const curA=stallOn?0.52:0.06+0.015*lastMoving;
+ // 健康分析(同 telemetry_health):滑窗压样 + 疲劳累计(duty=运动通道占比)+ 堵转三条件
+ healthPush({servo_temp_c:m.servo_temp_c,servo_current_a:curA,battery_v:m.battery_v},up);
+ health.fatigue=accumulateFatigue(health.fatigue,lastMoving/18,m.servo_temp_c,dtTele);
+ healthStall=stallOn?detectStall(98.0,90.0,curA,stallDur):false;
+ healthUi(m,curA,stallOn,stallDur);
+ const sec=$('teleSec');if(!sec||!sec.open)return;          // 折叠时只做健康分析,不渲染帧 hex
+ const ids=Object.keys(TMETRICS).map(Number).sort((a,b)=>a-b);
+ const payload=[TELEP.VER2,ids.length];
+ for(const id of ids){const raw=i16(m[TMETRICS[id][0]]*TMETRICS[id][1]);
+  payload.push(id,(raw>>8)&0xFF,raw&0xFF);}
+ const c=crc16(payload);const f=[TELEP.SOF,...payload,(c>>8)&0xFF,c&0xFF];
+ const hx=f.map(b=>b.toString(16).toUpperCase().padStart(2,'0'));
+ $('teleHex').innerHTML='<span class="sof">'+hx[0]+'</span> '+hx.slice(1,3).join(' ')+' '+
+  hx.slice(3,f.length-2).join(' ')+' <span class="crc">'+hx.slice(f.length-2).join(' ')+'</span>';
+ $('teleDec').textContent='[SOF=0x5A][VER=0x02][N=9][9×(metric_id,i16 BE)][CRC16BE] · '+f.length+' 字节 · '+
+  ids.map(id=>`${id}:${TMETRICS[id][0]}=${(i16(m[TMETRICS[id][0]]*TMETRICS[id][1])<<16>>16)/TMETRICS[id][1]}`).join(' ');}
+function showCfgFrame(){
+ const cd=v=>Math.max(0,Math.min(PROTO.ANGLE_MAX_CDEG,Math.round(v*PROTO.ANGLE_SCALE)));
+ const chs=PANEL.map(n=>CH[n]).slice().sort((a,b)=>a.id-b.id);   // id 升序,同 encode_config
+ const payload=[PROTO.VER2,chs.length];
+ for(const c of chs){payload.push(c.id&0xFF);
+  for(const u of [cd(c.neutral),cd(c.min),cd(c.max),Math.round(PROTO.DEFAULT_MAX_DPS)&0xFFFF])
+   payload.push((u>>8)&0xFF,u&0xFF);}
+ const cc=crc16(payload);const f=[CFG.CFG_SOF,...payload,(cc>>8)&0xFF,cc&0xFF];
+ const hx=f.map(b=>b.toString(16).toUpperCase().padStart(2,'0'));
+ $('cfgHex').innerHTML='<span class="sof">'+hx[0]+'</span> '+hx.slice(1,3).join(' ')+' '+
+  hx.slice(3,f.length-2).join(' ')+' <span class="crc">'+hx.slice(f.length-2).join(' ')+'</span>';
+ $('cfgMeta').textContent=`[SOF=0xB7][VER=0x02][N=18][18×(id + neutral/min/max cdeg + max_dps 各 u16BE)]`+
+  `[CRC16BE] · ${f.length} 字节 · max_dps=250(默认,标定表未逐通道覆盖)· 与 servo_protocol.encode_config`+
+  ` 同式 · id15/16 眼球通道由注视子系统另行配置,不在本台面帧内(模拟,未真下发)`;}
+
+/* ===== 主循环:限速逼近 → 反解 AU → blendshape/颈旋转 → 帧预览 ===== */
+let seq=0, lastFrameHexAt=0, fpsN=0, fpsAt=performance.now();
+function fmtDeg(v){return (v>=0?'+':'')+v.toFixed(1)+'°';}
+function neckTrajTick(now){
+ if(!traj)return;
+ const t=(now-traj.t0)/1000, keys=traj.keys;
+ if(t>=keys[keys.length-1][0]){const a=keys[keys.length-1][1];
+  S[traj.ch].t=mapChannel(a,CH[traj.ch]);$('in_'+traj.ch).value=S[traj.ch].t;traj=null;return;}
+ let a=keys[0][1];
+ for(let i=1;i<keys.length;i++){const [t0,a0]=keys[i-1],[t1,a1]=keys[i];
+  if(t<=t1){a=a0+(a1-a0)*(t-t0)/(t1-t0);break;}}
+ S[traj.ch].t=mapChannel(a,CH[traj.ch]);$('in_'+traj.ch).value=S[traj.ch].t;}
+function updateHexPreview(now){
+ if(now-lastFrameHexAt<100)return;      // 帧预览 10Hz 刷新(避免刷屏)
+ lastFrameHexAt=now;
+ if(estop||hold){                        // 急停/hold:数据流暂停,显示最后下发的 0xC3 控制帧
+  const f=buildCtrlFrame(estop);
+  const hx=f.map(b=>b.toString(16).toUpperCase().padStart(2,'0'));
+  $('hex').innerHTML='<span class="sof">'+hx[0]+'</span> <span class="hd">'+hx.slice(1,4).join(' ')+
+   '</span> <span class="crc">'+hx.slice(4).join(' ')+'</span>';
+  $('fmeta').textContent=estop
+   ?'[SOF=0xC3][VER=0x02][CMD=0x01 软急停][ARG=1 冻结][CRC16BE] · 6 字节 · CRC 覆盖 VER..ARG · 数据流暂停'
+   :'[SOF=0xC3][VER=0x02][CMD=0x01 软急停][ARG=0 释放][CRC16BE] · 6 字节 · CRC 覆盖 VER..ARG · hold:等待新数据帧';
+  return;}
+ // 下发的是叠加呼吸/清醒度微垂/叹气后的实际角(NECK_PITCH;渲染与帧同源),再钳回限位
+ const cmds={};for(const n of PANEL)
+  cmds[CH[n].id]=n==='NECK_PITCH'?clampN(S[n].a+neckOverlay(),CH[n].min,CH[n].max):S[n].a;
+ const f=buildFrame(cmds,seq);seq=(seq+1)&0xFF;lastSeq=(seq+255)&0xFF;
+ const hx=f.map(b=>b.toString(16).toUpperCase().padStart(2,'0'));
+ $('hex').innerHTML='<span class="sof">'+hx[0]+'</span> <span class="hd">'+hx.slice(1,4).join(' ')+
+  '</span> '+hx.slice(4,f.length-2).join(' ')+' <span class="crc">'+hx.slice(f.length-2).join(' ')+'</span>';
+ $('fmeta').textContent=`[SOF=0xA5][VER=0x02][seq=${(seq+255)&0xFF}][N=18][18×(id,angle_cdeg u16BE)][CRC16BE] · ${f.length} 字节 · CRC 覆盖 VER..payload`;
+ $('sSeq').textContent=(seq+255)&0xFF;}
+let last=performance.now();
+function tick(now){
+ requestAnimationFrame(tick);resize();
+ const dt=Math.min((now-last)/1000,0.1);last=now;
+ scriptTick(now);     // 情绪剧本:时间轴派发 + 清醒度渐变(急停/手动操作打断)
+ neckTrajTick(now);
+ envTick(now);        // 情绪包络:改写面部目标角(再经限速)
+ repTick(now);        // 录制回放:按时间线改写目标角(再经限速)
+ talkTick(now);       // 说话演示:viseme 调度 → 嘴部有效目标(L2)
+ blinkTick(now);      // 自动眨眼:事件相位推进(L3)
+ behvTick(now,dt);    // 行为模式:L1 行为 AU(倾听/思考/附和/告别)
+ microAutoTick(now);  // 空闲自发微表情:确定性泊松调度(同引擎 natural_micro,随微动开关)
+ microTick(now);      // 微表情事件:L1 快包络 AU + 叹气呼吸叠加
+ moodTick(now);       // 心境层:L0 情绪驱动 step_mood / decay_only,自带真实时钟(同 daffTick 口径)+ 调制系数
+ daffTick(now);       // 对话情绪状态机:置信度衰减 / neutral 超时回落 + 面板刷新
+ svTick(now);         // 双目视觉场景:targetAt 画面推进 + eventsBetween 事件派发(急停停播清画面)
+ // 行为仲裁(同 arbiter):speak=口型演示活跃,emotion=L0 当前最大激活;idle 增益门控呼吸/眼游走
+ let emoLvl=0;if(!MUTE.L0)for(const k in emoCur)emoLvl=Math.max(emoLvl,emoCur[k]);
+ lastEmoLvl=emoLvl;   // 供下一帧空闲自发微表情判定(microAutoTick 在本计算之前跑)
+ arbTick(talk?1:0,emoLvl,dt);
+ composeTargets();    // 分层合成:基座+L0+L1 → L2 接管 → 耦合层 → 有效目标角(L3 旁路直写)
+ // 轨迹逐帧推进:所选 profile 的逐 tick 数学同 trajectory_shaping(rate_limit 分支与原
+ // 纯限速/固件 servo_control_tick 逐拍等值;trapezoid/scurve 只会更平缓,绝不更快——任意
+ // profile 恒有 |Δpos| ≤ 250°/s×dt,即 0.5°/tick 限速不变量)。逼近的是"有效目标"
+ // (说话/眨眼层可临时接管,不改写滑杆的用户目标值)。
+ // 急停/hold 语义不变:急停中位置冻结(3D 定格)且轨迹状态 vel/acc 清零,目标改动不生效。
+ const stepper=TRAJ_STEPPERS[trajProfile];let moving=0;
+ for(const n of PANEL){const s=S[n];
+  const tt=effTarget(n);
+  if(estop){s.v=0;s.acc=0;}
+  else{const ns=stepper({pos:s.a,vel:s.v,acc:s.acc},tt,dt);
+   s.a=ns.pos;s.v=ns.vel;s.acc=ns.acc;}
+  if(!estop&&Math.abs(tt-s.a)>0.01)moving++;
+  const c=CH[n];
+  const rd=$('rd_'+n);if(rd)rd.textContent=`目标 ${s.t.toFixed(1)}° · 实际 ${s.a.toFixed(1)}° · ${Math.abs(s.v).toFixed(0)}°/s`;
+  // ⚙ 耦合修正角标:悬停显示原值→现值(阈 0.05° 防抖)
+  const cg=$('cg_'+n);if(cg){const inf=lastCoupled[n];
+   const on=!!(inf&&Math.abs(inf.post-inf.pre)>0.05);
+   if(on!==(cg.style.display==='inline')){cg.style.display=on?'inline':'none';}
+   if(on)cg.title=`由耦合层修正:原 ${inf.pre.toFixed(1)}° → 现 ${inf.post.toFixed(1)}°`;}
+  const fl=$('fl_'+n);if(fl){const pn=(c.neutral-c.min)/(c.max-c.min)*100,pa=(s.a-c.min)/(c.max-c.min)*100;
+   fl.style.left=Math.min(pn,pa)+'%';fl.style.width=Math.abs(pa-pn)+'%';}}
+ lastMoving=moving;lastDtMs=dt*1000;   // 遥测取材
+ breathTick(now,dt);                    // 呼吸微动:限速后叠加到实际角(渲染/下发同源)
+ arousalTick(now,dt);                   // 清醒度生理轴:颈俯仰微垂+打盹点头(同呼吸层)
+ // 反解归一化激活 a=(angle-neutral)/gain(gamma=1)→ AU → ARKit blendshape(负激活截 0)
+ // 自然度层·左右不对称接点:选在 AU→ARKit 左右扇出处而非 composeTargets——
+ // 本台 CH 表 18 路均为双侧联动(单通道同驱左右,无左右独立通道可在限速前分乘),
+ // 左右仅在此扇出点成对存在;乘在扇出点不动 S[n].t/emoCur 分层记账、不碰通道级
+ // 限速管线(限速不变量零扰动),为最小侵入。开关关/急停 = 增益恒 1,现状零改变。
+ const bs={};
+ if(natAsymOn)natApplied={};
+ for(const n of PANEL){if(n.startsWith('NECK_'))continue;
+  const au=invChannel(S[n].a,CH[n]);const m=AU2BS[n];if(!m)continue;
+  const pr=(natAsymOn&&!estop)?natGains[n]:null;   // 成对通道才有增益对(眨眼事件通道已排除)
+  for(const k in m){
+   const g=pr?(/Left$/.test(k)?pr[0]:(/Right$/.test(k)?pr[1]:1)):1;
+   bs[k]=(bs[k]||0)+au*m[k]*g;}
+  if(pr&&au>0.02)natApplied[n]=au;}                // 活跃成对通道快照(供区块实时显示 左/右 值)
+ if(natAsymOn&&now-natUiAt>200){natUiAt=now;natAsymUi();}
+ for(const k in bs){const list=morphIndex[canon(k)];if(!list)continue;
+  const v=clampN(bs[k],0,1);for(const {mesh,idx} of list)mesh.morphTargetInfluences[idx]=v;}
+ // 颈部三路:角度偏移(度→弧度)直接旋转头部节点(有头骨转头骨,纯头模转根节点);
+ // NECK_PITCH 叠加呼吸/清醒度微垂+打盹/叹气后再钳回限位(渲染/下发/姿态显示同源)
+ const pitchA=clampN(S.NECK_PITCH.a+neckOverlay(),CH.NECK_PITCH.min,CH.NECK_PITCH.max);
+ const pitch=pitchA-CH.NECK_PITCH.neutral, yaw=S.NECK_YAW.a-CH.NECK_YAW.neutral,
+       roll=S.NECK_ROLL.a-CH.NECK_ROLL.neutral, D=Math.PI/180;
+ const node=headBone||modelRoot;
+ if(node){node.rotation.x=-pitch*D;node.rotation.y=yaw*D;node.rotation.z=-roll*D;}
+ gazeTick(now,dt);   // 眼神微游走(仅 3D 眼骨,非 18 路台面)
+ $('pP').textContent=fmtDeg(pitch);$('pY').textContent=fmtDeg(yaw);$('pR').textContent=fmtDeg(roll);
+ $('sMov').textContent=moving;
+ // 示波器缓冲:每帧 push 选中通道的有效目标/实际角(NECK_PITCH 实际角含呼吸叠加),仅留最近 5s
+ if(scopeCh){
+  const scTT=effTarget(scopeCh);
+  // 三 profile 对比仿真:对同一有效目标各自逐 tick 推进(急停守同一"冻结+vel/acc 清零"语义)
+  for(const k in scopeSim){const ss=scopeSim[k];
+   if(estop){ss.pos=S[scopeCh].a;ss.vel=0;ss.acc=0;}
+   else{const ns=TRAJ_STEPPERS[k](ss,scTT,dt);ss.pos=ns.pos;ss.vel=ns.vel;ss.acc=ns.acc;}}
+  const av=scopeCh==='NECK_PITCH'?pitchA:S[scopeCh].a;
+  scopeBuf.push({t:now,g:scTT,a:av,r:scopeSim.rate_limit.pos,z:scopeSim.trapezoid.pos,s:scopeSim.scurve.pos});
+  while(scopeBuf.length&&now-scopeBuf[0].t>5000)scopeBuf.shift();
+  drawScope(now);}
+ drawPad();
+ drawLayers(now);    // 分层混合 L0-L3 堆叠图(折叠展开时)
+ fpsN++;if(now-fpsAt>=1000){$('sFps').textContent=Math.round(fpsN*1000/(now-fpsAt));fpsN=0;fpsAt=now;}
+ recTick(now);       // 录制:采样目标值变化
+ teleTick(now);      // 遥测帧 1Hz(折叠展开时)
+ updateHexPreview(now);
+ controls.update();renderer.render(scene,camera);}
+
+/* ===== 示波器(轻量:环形缓冲 + 每帧重绘,不引库)与 操控垫重绘 ===== */
+function scopeSelect(n){
+ if(n===scopeCh)return;
+ scopeCh=n;scopeBuf.length=0;
+ scopeSimReset();   /* 三 profile 对比仿真从当前实际角重新起步 */
+ $('scCh').textContent=n+'(id '+CH[n].id+')';
+ document.querySelectorAll('.sv').forEach(el=>el.classList.toggle('sel',el.dataset.ch===n));}
+let sccEl=null,sccG=null;
+function drawScope(now){
+ if(!sccEl){sccEl=$('scc');sccG=sccEl.getContext('2d');}
+ const cw=sccEl.clientWidth,chh=sccEl.clientHeight;
+ if(cw&&(sccEl.width!==cw||sccEl.height!==chh)){sccEl.width=cw;sccEl.height=chh;}
+ const W=sccEl.width,H=sccEl.height,c=CH[scopeCh],g=sccG;
+ const Y=v=>4+(c.max-v)/(c.max-c.min)*(H-8);
+ const X=t=>(t-(now-5000))/5000*W;
+ g.clearRect(0,0,W,H);
+ g.strokeStyle='rgba(255,176,97,.3)';g.lineWidth=1;g.setLineDash([2,4]);   // 中性参考线
+ g.beginPath();g.moveTo(0,Y(c.neutral));g.lineTo(W,Y(c.neutral));g.stroke();g.setLineDash([]);
+ g.fillStyle='rgba(138,152,182,.85)';g.font='10px Consolas,monospace';
+ g.fillText(c.max+'°',4,12);g.fillText(c.min+'°',4,H-4);
+ if(scopeBuf.length>1){
+  // 三 profile 对同一目标的响应对比(细线):rate_limit 绿 / trapezoid 橙 / scurve 紫
+  for(const pk of [['r','#49d17a'],['z','#ffb061'],['s','#b18bff']]){
+   g.strokeStyle=pk[1];g.lineWidth=1;g.globalAlpha=0.8;
+   g.beginPath();let started=false;
+   for(let i=0;i<scopeBuf.length;i++){const p=scopeBuf[i];
+    if(p[pk[0]]===undefined)continue;
+    started?g.lineTo(X(p.t),Y(p[pk[0]])):g.moveTo(X(p.t),Y(p[pk[0]]));started=true;}
+   g.stroke();g.globalAlpha=1;}
+  g.strokeStyle='#4d8bff';g.lineWidth=1;g.setLineDash([4,3]);              // 目标角:细虚线
+  g.beginPath();for(let i=0;i<scopeBuf.length;i++){const p=scopeBuf[i];
+   i?g.lineTo(X(p.t),Y(p.g)):g.moveTo(X(p.t),Y(p.g));}g.stroke();
+  g.setLineDash([]);g.strokeStyle='#2fe6cf';g.lineWidth=1.6;               // 实际角:实线(当前 profile+生理叠加)
+  g.beginPath();for(let i=0;i<scopeBuf.length;i++){const p=scopeBuf[i];
+   i?g.lineTo(X(p.t),Y(p.a)):g.moveTo(X(p.t),Y(p.a));}g.stroke();
+  // 图例(与曲线同色;"实际"含 NECK_PITCH 的呼吸/生理叠加)
+  g.fillStyle='#49d17a';g.fillText('rate',W-176,12);
+  g.fillStyle='#ffb061';g.fillText('trap',W-146,12);
+  g.fillStyle='#b18bff';g.fillText('scurve',W-116,12);
+  g.fillStyle='#2fe6cf';g.fillText('实际',W-72,12);
+  g.fillStyle='#4d8bff';g.fillText('目标',W-40,12);}}
+let padEl=null,padG=null;
+function drawPad(){
+ if(!padEl){padEl=$('pad');if(!padEl)return;padG=padEl.getContext('2d');}
+ const g=padG,W=padEl.width,H=padEl.height,cy=CH.NECK_YAW,cp=CH.NECK_PITCH;
+ const X=v=>(v-cy.min)/(cy.max-cy.min)*W, Y=v=>(cp.max-v)/(cp.max-cp.min)*H;
+ g.clearRect(0,0,W,H);
+ g.strokeStyle='rgba(255,176,97,.25)';g.lineWidth=1;                       // 中性参考线(暗)
+ g.beginPath();g.moveTo(X(cy.neutral),0);g.lineTo(X(cy.neutral),H);
+ g.moveTo(0,Y(cp.neutral));g.lineTo(W,Y(cp.neutral));g.stroke();
+ const tx=X(S.NECK_YAW.t),ty=Y(S.NECK_PITCH.t);                            // 目标:十字准星
+ g.strokeStyle='#2fe6cf';g.lineWidth=1.2;
+ g.beginPath();g.moveTo(tx-9,ty);g.lineTo(tx+9,ty);g.moveTo(tx,ty-9);g.lineTo(tx,ty+9);g.stroke();
+ g.beginPath();g.arc(tx,ty,5,0,Math.PI*2);g.stroke();
+ const ax=X(S.NECK_YAW.a),ay=Y(S.NECK_PITCH.a);                            // 实际:小圆点(限速追赶)
+ g.fillStyle='#ffb061';g.beginPath();g.arc(ax,ay,3.2,0,Math.PI*2);g.fill();}
+
+/* ===== ③ 分层混合 L0-L3 堆叠图 + 图例/mute + 仲裁读数 ===== */
+const LAYER_DEF=[['base','基座(滑杆)','#8a98b6',null],['l0','L0 情绪','#2fe6cf','L0'],
+ ['l1','L1 行为','#ffb061','L1'],['l2','L2 口型','#4d8bff','L2'],
+ ['l3','L3 眨眼','#b18bff','L3'],['idle','idle 呼吸·生理','#49d17a','idle']];   // idle 段含清醒度眼睑/颈垂
+function buildLayerLegend(){const r=$('lmuteRow');
+ for(const [key,zh,color,mk] of LAYER_DEF){
+  const lab=document.createElement('label');
+  lab.innerHTML=`<span class="sw" style="background:${color}"></span>${zh}`+
+   (mk?` <input type="checkbox" id="mu_${mk}" title="mute:临时移出合成(演示工具)">`:'');
+  r.appendChild(lab);
+  if(mk)lab.querySelector('input').addEventListener('change',e=>{MUTE[mk]=e.target.checked;});}}
+let layC=null,layG=null,layAt=0;
+function drawLayers(now){
+ const sec=$('layerSec');if(!sec||!sec.open)return;
+ if(now-layAt<80)return;layAt=now;                     // ~12Hz 重绘足够
+ if(!layC){layC=$('layerC');layG=layC.getContext('2d');}
+ const cw=layC.clientWidth;if(cw&&layC.width!==cw)layC.width=cw;
+ const W=layC.width,H=layC.height,g=layG;
+ g.clearRect(0,0,W,H);
+ // 仲裁读数(同 arbiter:说话>情绪>空闲;idle 快出慢入)
+ $('arbInfo').textContent=`仲裁 state=${arb.state} · idle 增益 ${arb.idle.toFixed(2)} · `+
+  `active ${arb.active.toFixed(2)}(阈值 speak>${ARB.SPEAK_THR} / emo>${ARB.EMO_THR},情绪保持 ${ARB.EMO_HOLD}s)`;
+ const chs=Object.keys(viz);
+ g.font='10px Consolas,monospace';
+ if(!chs.length){g.fillStyle='rgba(138,152,182,.7)';
+  g.fillText('无活跃通道贡献(拖滑杆/点情绪/行为/说话后可见)',8,16);return;}
+ chs.sort((a,b)=>{const s=o=>Object.values(o).reduce((x,y)=>x+y,0);return s(viz[b])-s(viz[a]);});
+ const rows=chs.slice(0,9),rh=Math.min(20,(H-6)/rows.length),x0=78,bw=W-x0-30;
+ rows.forEach((n,i)=>{
+  const y=4+i*rh;
+  g.fillStyle='rgba(232,238,249,.85)';g.fillText(n,4,y+rh*0.62);
+  let x=x0,total=0;
+  for(const [key,,color] of LAYER_DEF){
+   const v=Math.min(1,viz[n][key]||0);if(v<=0.001)continue;
+   const w=Math.max(2,v*bw*(total+v>1?(1-total)/v:1));  // 总量截 1(钳位语义)
+   g.fillStyle=color;g.fillRect(x,y+2,w,rh-6);
+   x+=w;total+=v;if(total>=1)break;}
+  g.fillStyle='rgba(138,152,182,.85)';g.fillText(Math.min(1,total).toFixed(2),x+4,y+rh*0.62);});}
+
+/* ===== ① 复合情绪混合器 UI ===== */
+function mixApply(pairs,label,fromBtn){
+ const au=mixFromPairs(pairs);
+ if(!applyEmotionAU(au,label,'mix'))return;
+ markEmo(null);
+ if(fromBtn)fromBtn.classList.add('on');
+ const aus=Object.keys(au).sort();
+ $('mixInfo').textContent=`当前复合 L0:${label} → `+
+  (aus.length?aus.map(k=>`${k}=${au[k].toFixed(2)}`).join(' '):'(空:未知情绪贡献为空,同后端容错)')+
+  ' · 经 ASD 包络×强度×耦合×限速落舵机。混合同 emotion_mix.mix_from_pairs(逐 AU 钳位 0..1)。';}
+function buildMix(){
+ const bs=$('mixBtns');
+ for(const [zh,spec] of MIX_PRESETS){const b=document.createElement('button');
+  b.className='eb';b.textContent=zh;b.title=spec+'(权重演示层自定)';
+  b.onclick=()=>mixApply(parseEmotionSpec(spec),spec,b);bs.appendChild(b);}
+ const sa=$('mixA'),sb=$('mixB');
+ for(const [k,zh] of EMO){for(const s of [sa,sb]){const o=document.createElement('option');
+  o.value=k;o.textContent=zh;s.appendChild(o.cloneNode(true));}}
+ sa.value='joy';sb.value='surprise';
+ const wv=()=>{const wa=+$('mixW').value/100;$('mixWv').textContent=wa.toFixed(2)+'/'+(1-wa).toFixed(2);return wa;};
+ const doMix=()=>{const wa=wv();
+  mixApply([[sa.value,wa],[sb.value,+(1-wa).toFixed(2)]],
+   `${sa.value}:${wa.toFixed(2)}+${sb.value}:${(1-wa).toFixed(2)}`);};
+ $('mixW').addEventListener('input',()=>{wv();
+  if(curEmoKind==='mix')doMix();});                      // 已在混合态 → 拖权重实时重混
+ $('btnMix').onclick=doMix;
+ $('btnMixSpec').onclick=()=>{const spec=$('mixSpec').value;
+  mixApply(parseEmotionSpec(spec),spec||'(空)');};
+ wv();}
+
+/* ===== ④ 行为模式按钮行 ===== */
+function buildBehv(){const r=$('behvRow');
+ for(const [m,zh] of BEHV_MODES){const b=document.createElement('button');
+  b.className='eb';b.id='bm_'+m;b.textContent=zh;
+  b.onclick=()=>behvStart(m);r.appendChild(b);}}
+
+/* ===== 扩展状态按钮行(EXT_PRESETS 后端真值)/ 微表情按钮行 / 情绪剧本控件 ===== */
+function buildExt(){const r=$('extRow');
+ for(const [k,zh] of EXT_LABEL){const b=document.createElement('button');
+  b.className='eb';b.id='x_'+k;b.textContent=zh;
+  b.title=k+' · '+Object.entries(EXT_PRESETS[k]).map(([a,v])=>a+'='+v).join(' ')+
+   '(emotion_mix.EXTENDED_PRESETS 真值,单测+门禁锁定)';
+  b.onclick=()=>natDelayed(()=>{                                      // 反应延迟同基础预设(手动点击)
+   if(!applyExtVariant(k))return;                                     // 变体开关开→选档;关→原预设(零改变)
+   markEmo(null);b.classList.add('on');});
+  r.appendChild(b);}}
+function buildMicro(){const r=$('microRow');
+ for(const [k,zh,au,dur] of MICRO_EVENTS){const b=document.createElement('button');
+  b.className='eb';b.textContent=zh;
+  b.title=Object.entries(au).map(([a,v])=>a+'='+v).join(' ')+` · ${dur}s(演示层参数,不锁定)`;
+  b.onclick=()=>microFire(k);r.appendChild(b);}}
+function buildScript(){
+ const sel=$('scSel');
+ for(const name in SCRIPTS){const o=document.createElement('option');
+  o.value=name;o.textContent=name;sel.appendChild(o);}
+ const load=()=>{$('scIO').value=JSON.stringify(SCRIPTS[sel.value],null,1);
+  $('scST').textContent=`已载入预置剧本「${sel.value}」(可编辑后播放,复制粘贴保存,无下载)。`;};
+ $('btnScLoad').onclick=load;
+ $('btnScPlay').onclick=scriptPlay;
+ $('btnScStop').onclick=()=>scriptStop('已停止。');
+ load();
+ // 播放中任何面板手动操作(剧本小节自身除外)即打断,同急停语义;3D 视口旋转不算
+ document.addEventListener('pointerdown',e=>{
+  if((script||ramp)&&e.target.closest('#panel')&&!e.target.closest('#scriptSec'))
+   scriptStop('已被手动操作打断。');},true);}
+
+/* ===== ⑤ 自定义情绪编辑器(演示层,localStorage;PRESETS 真值不动) ===== */
+const CUS_KEY='qz18_custom_emotions';
+function cusAll(){try{const o=JSON.parse(localStorage.getItem(CUS_KEY)||'{}');
+ return (o&&typeof o==='object'&&!Array.isArray(o))?o:{};}catch(_){return {};}}
+function cusSave(all){try{localStorage.setItem(CUS_KEY,JSON.stringify(all));}catch(_){}}
+function cusSanitize(au){const out={};
+ if(!au||typeof au!=='object'||Array.isArray(au))return out;
+ for(const k in au){if(COUPLE_AU.indexOf(k)>=0&&isFinite(+au[k]))out[k]=clamp01(+au[k]);}
+ return out;}
+function cusEditorAU(){const au={};
+ for(const n of COUPLE_AU){const v=+$('cu_'+n).value/100;if(v>0)au[n]=v;}
+ return au;}
+function cusPreview(){if(!$('cusLive').checked)return;
+ applyEmotionAU(cusEditorAU(),'编辑预览','custom',true);markEmo(null);}
+function buildCustom(){
+ const sel=$('cusBase');
+ for(const [k,zh] of EMO){const o=document.createElement('option');o.value=k;o.textContent=zh;sel.appendChild(o);}
+ const host=$('cusSliders');
+ for(const n of COUPLE_AU){const d=document.createElement('div');d.className='inten';
+  d.innerHTML=`<span style="min-width:52px">${n}</span>
+   <input type="range" id="cu_${n}" min="0" max="100" step="1" value="0"><b id="cuv_${n}">0.00</b>`;
+  host.appendChild(d);
+  d.querySelector('input').addEventListener('input',e=>{
+   $('cuv_'+n).textContent=(+e.target.value/100).toFixed(2);cusPreview();});}
+ $('btnCusLoad').onclick=()=>{const p=PRESETS[sel.value]||{};
+  for(const n of COUPLE_AU){const v=Math.round((p[n]||0)*100);
+   $('cu_'+n).value=v;$('cuv_'+n).textContent=(v/100).toFixed(2);}
+  cusPreview();$('cusInfo').textContent=`已载入预设 ${sel.value} 到编辑滑杆(可逐 AU 微调后命名保存)。`;};
+ $('btnCusSave').onclick=()=>{const name=$('cusName').value.trim();
+  if(!name){$('cusInfo').textContent='请先填名称再保存。';return;}
+  const au=cusEditorAU();
+  if(!Object.keys(au).length){$('cusInfo').textContent='全部 AU 为 0,不保存(先载入起点或拖滑杆)。';return;}
+  const all=cusAll();all[name]=au;cusSave(all);renderCusRow();
+  $('cusInfo').textContent=`已保存自定义情绪「${name}」(localStorage,演示层;自定义权重需经真机标定验证)。`;};
+ $('btnCusExp').onclick=()=>{$('cusIO').value=JSON.stringify(cusAll());
+  $('cusInfo').textContent='已导出全部自定义情绪到文本框(复制粘贴保存,无下载)。';};
+ $('btnCusImp').onclick=()=>{const txt=$('cusIO').value.trim();
+  if(!txt){$('cusInfo').textContent='文本框为空:粘贴 JSON 或 spec 后再导入。';return;}
+  const all=cusAll();let n=0,name=$('cusName').value.trim();
+  try{
+   let o;try{o=JSON.parse(txt);}catch(_){o=txt;}        // 非 JSON → 按 spec 字符串处理
+   if(typeof o==='string'){const au=cusSanitize(mixSpec(o));
+    if(!Object.keys(au).length)throw new Error('spec 解析结果为空');
+    all[name||('spec_'+Date.now()%10000)]=au;n=1;}
+   else if(o&&typeof o==='object'&&!Array.isArray(o)){
+    const keys=Object.keys(o);
+    if(keys.length&&keys.every(k=>k.indexOf('AU')===0)){        // 单条 {AU:权重}
+     const au=cusSanitize(o);if(!Object.keys(au).length)throw new Error('无合法 AU 键');
+     all[name||('导入_'+Date.now()%10000)]=au;n=1;}
+    else{for(const k of keys){const au=cusSanitize(o[k]);       // 多条 {名称:{AU:权重}}
+     if(Object.keys(au).length){all[k]=au;n++;}}
+     if(!n)throw new Error('无合法条目');}}
+   else throw new Error('格式不识别');
+   cusSave(all);renderCusRow();
+   $('cusInfo').textContent=`导入成功:${n} 条(非法 AU 键/越界值已过滤钳位;演示层,需经真机标定验证)。`;
+  }catch(err){$('cusInfo').textContent='导入失败:'+err.message+'(格式见文本框占位提示)';}};}
+function renderCusRow(){const r=$('cusRow');r.innerHTML='';
+ const all=cusAll();
+ for(const name in all){const b=document.createElement('button');
+  b.className='eb';b.title='自定义情绪(演示层,localStorage)· 点 × 删除';
+  b.innerHTML=`🎨 ${name}<span class="x">×</span>`;
+  b.onclick=e=>{
+   if(e.target.classList.contains('x')){const a=cusAll();delete a[name];cusSave(a);renderCusRow();return;}
+   if(!applyEmotionAU(cusSanitize(all[name]),name,'custom'))return;
+   markEmo(null);b.classList.add('on');};
+  r.appendChild(b);}}
+
+/* ===== 心境层 / 对话驱动 / 健康注入 / 轨迹 profile 控件构建 ===== */
+function buildMood(){
+ const sel=$('moodPersona');
+ for(const pk of [['','(无人格偏置)'],['warm','warm 热情'],['calm','calm 沉稳'],['lively','lively 俏皮']]){
+  const o=document.createElement('option');o.value=pk[0];o.textContent=pk[1];sel.appendChild(o);}
+ sel.addEventListener('change',()=>{persona=sel.value;moodUi();});
+ const host=$('moodBars');
+ const AXL={pleasure:'P 愉悦',arousal_bias:'A 唤醒',dominance:'D 掌控'};
+ for(const ax of MOOD_AXES){const d=document.createElement('div');d.className='inten';
+  d.innerHTML=`<span style="min-width:64px">${AXL[ax]}</span>
+   <div class="padbar"><div class="z"></div><div class="f" id="mb_${ax}" style="left:50%;width:0%"></div></div>
+   <b id="mv_${ax}" style="min-width:52px">+0.00</b>`;
+  host.appendChild(d);}
+ $('btnMoodReset').onclick=()=>{mood={pleasure:0,arousal_bias:0,dominance:0};
+  moodMod=moodToModulation(effectiveMood(mood,persona));moodUi();};
+ $('arousSrc').addEventListener('change',e=>{arousMoodDriven=e.target.checked;moodUi();});
+ moodUi();}
+function buildDaff(){
+ $('btnDaff').onclick=()=>daffSend(null);
+ $('daffIn').addEventListener('keydown',e=>{if(e.key==='Enter')daffSend(null);});
+ const r=$('daffQuick');
+ for(const s of DAFF_QUICK){const b=document.createElement('button');
+  b.className='eb';b.textContent='💬 '+s;
+  b.onclick=()=>{$('daffIn').value=s;daffSend(s);};
+  r.appendChild(b);}}
+function buildNatural(){
+ $('natAsymOn').addEventListener('change',e=>{natAsymOn=e.target.checked;natApplied={};natAsymUi();});
+ $('natDelayOn').addEventListener('change',e=>{natDelayOn=e.target.checked;
+  if(!natDelayOn){
+   const f=natPendingFn;natClearPending();      // 复查修复:关开关不吞已下达的点击——
+   if(f)f();                                    // 未决 pending 立即执行(而非静默丢弃)
+   $('natDelayTxt').textContent='反应延迟:关(点预设瞬时触发)';}
+  else $('natDelayTxt').textContent=
+   `反应延迟:开(下次点情绪预设/扩展状态延迟 ${(reactionDelay(natSeed)*1000).toFixed(1)} ms 触发)`;});
+ $('btnNatSeed').onclick=()=>{natSeed++;$('natSeedV').textContent=natSeed;
+  natRecalc();natVaryUi();natAsymUi();};           // 换一版:增益/变异/延迟同步重掷(确定性,可回退复现)
+ // 表情变体开关(默认关=现状零改变);计数种子 varSeq 不随开关复位,序列保持确定性可追溯
+ $('varOn').addEventListener('change',e=>{varOn=e.target.checked;
+  $('varTxt').textContent=varOn
+   ?'表情变体:开(点 6 基础情绪预设与 10 扩展状态按 hash01 选档触发;neutral/复合不受影响)'
+   :'表情变体:关(点情绪预设/扩展状态恒用标准表,现状零改变)';});
+ natRecalc();natVaryUi();natAsymUi();}
+function buildHealthTraj(){
+ $('btnInjTemp').onclick=()=>{inject.tempUntil=performance.now()+15000;
+  $('hAdvice').textContent='已注入:温度爬升 +2.5℃/s × 15s(演示层注入,非真故障)——观察 WARN/CRIT、趋势扣分与建议。';};
+ $('btnInjStall').onclick=()=>{inject.stallUntil=performance.now()+4000;inject.stallT0=performance.now();
+  $('hAdvice').textContent='已注入:堵转样本(残差 8°+电流 0.52A × 4s,演示层注入)——持续 >0.5s 后三条件同判堵转。';};
+ for(const k in TRAJ_STEPPERS){const b=$('pf_'+k);if(b)b.onclick=()=>setProfile(k);}}
+
+/* ===== 启动 ===== */
+buildEmo();buildNeck();buildSliders();
+buildMix();buildBehv();buildCustom();renderCusRow();buildLayerLegend();
+buildExt();buildMicro();buildScript();
+buildMood();buildDaff();buildNatural();buildStereo();buildHealthTraj();
+markEmo('neutral');
+scopeSelect('NECK_YAW');setLink();
+// 急停:锁存冻结(实际角保持、忽略指令),再次急停使 hold 失效(急停优先,同固件);
+// 同时中断包络/说话演示/回放,眨眼相位复位(拟真微动静止)
+$('btnEstop').onclick=()=>{if(estop)return;
+ estop=true;hold=false;traj=null;env=null;
+ stopTalk();stopReplay();behvStop();
+ micros.length=0;scriptStop('已被急停打断。');   // 微表情/剧本/清醒度渐变一并打断
+ svStop('已被急停打断(画面已清)。',true);       // 双目视觉:停止场景播放并清画面
+ natClearPending('反应延迟:pending 触发已被急停清除');   // 自然度层:急停立即清 pending 延迟
+ clearEmoLayer();markEmo(null);   // 冻结位姿整体重归手动基座(L0 记账清零,且驱动源 curEmo 一并清零——
+                                  // 否则 hold 期间心境仍被"已清空的情绪"驱动,与分层记账口径脱钩)
+ blink.phase=0;blink.dbl=false;estopCount++;
+ $('btnEstop').classList.add('on');setLink();};
+// 恢复:发 0xC3(estop=off)→ 进入 hold:目标改写为冻结位姿并保持,等第一帧新数据帧
+$('btnResume').onclick=()=>{if(!estop)return;
+ estop=false;hold=true;
+ for(const n of PANEL){S[n].t=S[n].a;$('in_'+n).value=S[n].t;}   // 冻结位姿即新目标(同固件)
+ $('btnEstop').classList.remove('on');setLink();};
+// 回中:全 18 路目标角=neutral,经限速自然回中(非瞬跳);急停中忽略,hold 中算新数据帧
+$('btnCenter').onclick=()=>{if(!userCommand())return;traj=null;env=null;behvStop();
+ for(const n of PANEL){S[n].t=mapChannel(0,CH[n]);$('in_'+n).value=S[n].t;}
+ emoCur={};curEmoAU=PRESETS.neutral;curEmoLabel='neutral';curEmoKind='preset';
+ markEmo('neutral');};
+// 情绪强度:0–100%,拖动时若有选中情绪则实时按 preset[au]×强度 重算目标角(即时,不重触发包络)
+$('inten').addEventListener('input',e=>{inten=+e.target.value/100;
+ $('intenV').textContent=e.target.value+'%';
+ if(curEmoAU)applyEmotionAU(curEmoAU,curEmoLabel,curEmoKind,true);});   // 预设/复合/自定义统一重算
+// 清醒度滑杆:生理轴系数(眼睑/眨眼/呼吸/颈垂/打盹)即时生效,均经既有限速/叠加管线;
+// 手动拖杆即回退"手动"模式(取消心境 arousal_baseline 接管)
+$('arous').addEventListener('input',e=>{
+ arousMoodDriven=false;
+ const cb=$('arousSrc');
+ if(cb)cb.checked=false;
+ setArousal(+e.target.value/100);});
+// —— 增强层接线:拟真微动开关 / 说话演示 / 录制回放 / 遥测配置 ——
+$('btnIdle').onclick=()=>{idleOn=!idleOn;$('btnIdle').classList.toggle('on',idleOn);
+ if(!idleOn){blink.phase=0;blink.dbl=false;breathCur=0;}};
+// ② 耦合约束层开关(默认开,与 C++ 引擎行为一致;关闭后原始 AU 直达舵机映射)
+$('btnCouple').onclick=()=>{couplingOn=!couplingOn;$('btnCouple').classList.toggle('on',couplingOn);};
+$('btnTalk').onclick=startTalk;
+$('btnRec').onclick=()=>{if(rep){recInfo('回放中,先 ⏹ 停止');return;}recStart();};
+$('btnRecStop').onclick=()=>{recStop();stopReplay();};
+$('btnPlay').onclick=startReplay;
+$('btnExp').onclick=()=>{
+ $('recIO').value=JSON.stringify({ver:1,base:rec.base||{},ev:rec.ev});
+ recInfo('已导出到文本框(复制粘贴保存,无下载)');};
+$('btnCopy').onclick=()=>{
+ const ta=$('recIO');
+ if(!ta.value)ta.value=JSON.stringify({ver:1,base:rec.base||{},ev:rec.ev});
+ ta.select();
+ if(navigator.clipboard&&navigator.clipboard.writeText)
+  navigator.clipboard.writeText(ta.value).then(()=>recInfo('已复制到剪贴板'),
+   ()=>recInfo('复制失败:请在文本框手动全选复制'));
+ else recInfo('剪贴板 API 不可用:请在文本框手动全选复制');};
+$('btnImp').onclick=()=>{try{
+ const o=JSON.parse($('recIO').value);
+ if(!o||!Array.isArray(o.ev))throw new Error('缺 ev 数组');
+ const ev=[];
+ for(const e of o.ev){
+  if(!Array.isArray(e)||e.length<3||typeof e[1]!=='string'||!CH[e[1]]||
+     !isFinite(+e[0])||!isFinite(+e[2]))continue;      // 非法条目跳过(通道名须在标定表内)
+  ev.push([Math.max(0,Math.round(+e[0])),e[1],+e[2]]);}
+ ev.sort((a,b)=>a[0]-b[0]);
+ recStop();rec.ev=ev;rec.base=(o.base&&typeof o.base==='object'&&!Array.isArray(o.base))?o.base:{};
+ recInfo(`导入成功:${ev.length} 事件,点 ▶ 回放(角度回放时钳回各通道限位)`);
+}catch(err){recInfo('导入失败:'+err.message);}};
+$('btnCfg').onclick=showCfgFrame;
+blink.next=performance.now()+expInterval()*1000;   // 首次眨眼排期
+$('sDps').textContent=PROTO.DEFAULT_MAX_DPS+'°/s';
+$('sStep').textContent=(PROTO.DEFAULT_MAX_DPS/PROTO.CTRL_HZ).toFixed(2)+'°/tick';
+$('sHz').textContent=PROTO.CTRL_HZ+'Hz';
+const ok=selfCheck();const chk=$('chk');chk.className='badge '+(ok?'ok':'bad');
+chk.textContent=ok?'✓ 映射/CRC16/混合/耦合/心境/对话/健康/轨迹/自然度/变体/双目 同后端':'✗ 自检失败';
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

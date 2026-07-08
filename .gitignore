@@ -1,0 +1,6 @@
+# 3D 头模需自备,不随仓库分发(见 models/README.md)
+models/*.glb
+
+# 常见系统/编辑器噪声
+.DS_Store
+Thumbs.db
