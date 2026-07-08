@@ -1,5 +1,7 @@
 # 茄子 X1 · 3D 互动演示
 
+> 项目官网:[CoreXbot.ai](https://CoreXbot.ai) ｜ 在线演示:https://corefusionbot.github.io/qiezi-x1-3d-demos/
+
 两个可离线运行的交互演示(算法/UI 无需联网;3D 头模需自备,见下),打开后先看落地页 `index.html`:
 
 | 页面 | 内容 |
