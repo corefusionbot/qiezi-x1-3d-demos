@@ -6,6 +6,12 @@
 
 > 项目官网:[CoreXbot.ai](https://CoreXbot.ai) ｜ 在线演示:https://corefusionbot.github.io/qiezi-x1-3d-demos/
 
+<p align="center">
+  <img src="assets/showcase-1.jpg" width="30%" alt="茄子 X1 概念形象" />
+  <img src="assets/showcase-2.jpg" width="30%" alt="茄子 X1 仿生头颈样机" />
+  <img src="assets/showcase-3.jpg" width="30%" alt="茄子 X1 结构外壳样机" />
+</p>
+
 两个可离线运行的交互演示(算法/UI 无需联网;3D 头模需自备,见下),打开后先看落地页 `index.html`:
 
 | 页面 | 内容 |
