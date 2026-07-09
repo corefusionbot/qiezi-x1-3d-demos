@@ -12,6 +12,12 @@
   <img src="assets/showcase-1.jpg" width="30%" alt="茄子 X1 概念形象" />
 </p>
 
+## 联系方式
+
+**海外联系:** AlanKwok@coreXbot.ai
+
+**国内联系:** AlanKwok@corefusion.cn ｜ AlanKwok@corefusionbot.com
+
 两个可离线运行的交互演示(算法/UI 无需联网;3D 头模需自备,见下),打开后先看落地页 `index.html`:
 
 | 页面 | 内容 |
