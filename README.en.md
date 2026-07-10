@@ -2,7 +2,7 @@
 
 # QIEZI X1 · Interactive 3D Demos
 
-> ### A ten-thousand-yuan-class embodied emotional-interaction robot — free to claim, worldwide.
+> ### A ten-thousand-yuan-class embodied emotional-interaction robot — free to claim, worldwide. (Real-name verification required · one per person · unlimited total supply)
 > **OpenClaw grew hands and feet in the virtual world; we grew a head and hands in the physical world.**
 > **Jensen Huang says Physical AI's ChatGPT moment has arrived — it's us.**
 
