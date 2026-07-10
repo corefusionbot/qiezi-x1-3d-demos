@@ -1,3 +1,5 @@
+<p align="right"><b>中文</b> | <a href="README.en.md">English</a></p>
+
 # 茄子 X1 · 3D 互动演示
 
 > ### 数万元级实体情感交互机器人,全球免费申领。
