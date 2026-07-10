@@ -14,6 +14,8 @@
 >
 > 场景演示:[TikTok](https://www.tiktok.com/@alankwok516/video/7660736349024029959?is_from_webapp=1&sender_device=pc) ｜ [YouTube Shorts](https://youtube.com/shorts/mXssJ0xu4No?feature=share)
 >
+> 在线演示 & 申领登记页:https://corefusionbot.github.io/qiezi-x1-3d-demos/(3D 演示入口 + 就地填写申领表单)
+>
 > 免费领取机器人说明:[图文在线预览(双语 5 页)](#免费领取机器人说明双语图文预览) ｜ [下载原始 PDF](https://raw.githubusercontent.com/corefusionbot/qiezi-x1-3d-demos/main/docs/free-robot-guide-bilingual.pdf)
 
 <p align="center">
