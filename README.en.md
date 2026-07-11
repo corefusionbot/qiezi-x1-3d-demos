@@ -21,7 +21,7 @@
 > Free-robot guide: [online page-by-page preview (bilingual, 5 pages)](#free-robot-guide-bilingual-page-by-page-preview) ｜ [download original PDF](https://raw.githubusercontent.com/corefusionbot/qiezi-x1-3d-demos/main/docs/free-robot-guide-bilingual.pdf)
 
 <p align="center">
-  <a href="https://docs.qq.com/smartsheet/DTk1IUU9JQmFXd2Rj?tab=t00i2h" target="_blank" rel="noopener"><img src="assets/apply-badge-cn.svg" alt="Free Robot · Mainland China Sign-up" width="300" /></a>
+  <a href="https://docs.qq.com/smartsheet/form/NMHQOIBaWwdc%2Ft00i2h%2FvrJWCs?tab=t00i2h" target="_blank" rel="noopener"><img src="assets/apply-badge-cn.svg" alt="Free Robot · Mainland China Sign-up" width="300" /></a>
 </p>
 <p align="center"><sub><b>Mainland China users</b> (no VPN needed, Tencent Docs): Name · Country/Region · Email · Phone</sub></p>
 
