@@ -1,6 +1,6 @@
 <p align="right"><a href="README.md">中文</a> | <b>English</b></p>
 
-# QIEZI X1 · Interactive 3D Demos
+# CoreFusion · Interactive 3D Demos
 
 > ### A tens-of-thousands-yuan-class embodied emotional-interaction robot — free to claim, worldwide. (Real-name verification required · one per person · unlimited total supply)
 > **OpenClaw grew hands and feet in the virtual world; we grew a head and hands in the physical world.**
@@ -16,9 +16,9 @@
 >
 > Field demos: [TikTok](https://www.tiktok.com/@alankwok516/video/7660736349024029959?is_from_webapp=1&sender_device=pc) ｜ [YouTube Shorts](https://youtube.com/shorts/mXssJ0xu4No?feature=share)
 >
-> Live demo & sign-up page: <https://corefusionbot.github.io/qiezi-x1-3d-demos/> (3D demo entry + in-page sign-up form)
+> Live demo & sign-up page: <https://corefusionbot.github.io/corefusion-3d-demos/> (3D demo entry + in-page sign-up form)
 >
-> Free-robot guide: [online page-by-page preview (bilingual, 5 pages)](#free-robot-guide-bilingual-page-by-page-preview) ｜ [download original PDF](https://raw.githubusercontent.com/corefusionbot/qiezi-x1-3d-demos/main/docs/free-robot-guide-bilingual.pdf)
+> Free-robot guide: [online page-by-page preview (bilingual, 5 pages)](#free-robot-guide-bilingual-page-by-page-preview) ｜ [download original PDF](https://raw.githubusercontent.com/corefusionbot/corefusion-3d-demos/main/docs/free-robot-guide-bilingual.pdf)
 
 <p align="center">
   <a href="https://docs.qq.com/smartsheet/form/NMHQOIBaWwdc%2Ft00i2h%2FvrJWCs?tab=t00i2h" target="_blank" rel="noopener"><img src="assets/apply-badge-cn.svg" alt="Free Robot · Mainland China Sign-up" width="300" /></a>
@@ -31,9 +31,9 @@
 <p align="center"><sub><b>Overseas users</b> (Google Form): Name · Country/Region · Email · Phone (accessing Google from mainland China may require your own network)</sub></p>
 
 <p align="center">
-  <img src="assets/showcase-3.jpg" width="30%" alt="QIEZI X1 structural shell prototype" />
-  <img src="assets/showcase-2.jpg" width="30%" alt="QIEZI X1 bionic head-and-neck prototype" />
-  <img src="assets/showcase-1.jpg" width="30%" alt="QIEZI X1 concept render" />
+  <img src="assets/showcase-3.jpg" width="30%" alt="CoreFusion structural shell prototype" />
+  <img src="assets/showcase-2.jpg" width="30%" alt="CoreFusion bionic head-and-neck prototype" />
+  <img src="assets/showcase-1.jpg" width="30%" alt="CoreFusion concept render" />
 </p>
 
 ## Contact
@@ -75,7 +75,7 @@ The original parts of this repo (`index.html` / `servo18-console.html` / `arm-co
 
 ## Free Robot Guide (Bilingual Page-by-Page Preview)
 
-> Page-by-page image preview (viewable directly by any visitor / on mobile, without relying on GitHub's PDF viewer); for the original file see [download original PDF](https://raw.githubusercontent.com/corefusionbot/qiezi-x1-3d-demos/main/docs/free-robot-guide-bilingual.pdf).
+> Page-by-page image preview (viewable directly by any visitor / on mobile, without relying on GitHub's PDF viewer); for the original file see [download original PDF](https://raw.githubusercontent.com/corefusionbot/corefusion-3d-demos/main/docs/free-robot-guide-bilingual.pdf).
 
 <p align="center">
   <img src="docs/pages/guide-01.png" width="80%" alt="Free robot guide page 1" />
@@ -90,4 +90,4 @@ The original parts of this repo (`index.html` / `servo18-console.html` / `arm-co
 - Everything here is a **software simulation**: no real hardware attached — servo angles / protocol frames / telemetry are same-formula software mirrors; the 3D character uses schematic-level bone driving (swing/twist alignment, no collision bodies or forearm-twist control).
 - **The 3D head model file is not bundled** (see the section above); the rest is a **snapshot** of the original project repo at a point in time (2026-07-08), and later updates to the original project do not sync automatically into this repo.
 
-—— QIEZI X1 project · 3D demo subset (generation method: see the original project repo `docs/X1整机开发方案.md` §4)
+—— CoreFusion project · 3D demo subset (generation method: see the original project repo `docs/X1整机开发方案.md` §4)

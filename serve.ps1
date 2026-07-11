@@ -1,4 +1,4 @@
-# QIEZI X1 offline demo static server (zero-dependency: built-in Windows PowerShell/.NET).
+# CoreFusion offline demo static server (zero-dependency: built-in Windows PowerShell/.NET).
 # Usage: double-click start-demo.bat, or: powershell -ExecutionPolicy Bypass -File serve.ps1 [port]
 # Note: pages use ES modules + GLB loading; opening the HTML via file:// is blocked by
 # browser CORS rules, so a local http server is required. Chinese docs: see README.md.
@@ -22,7 +22,7 @@ try { $listener.Start() } catch {
   exit 1
 }
 Write-Host ""
-Write-Host "  QIEZI X1 offline demo running (Ctrl+C to stop)" -ForegroundColor Green
+Write-Host "  CoreFusion offline demo running (Ctrl+C to stop)" -ForegroundColor Green
 Write-Host "  18-servo face console: http://127.0.0.1:$Port/servo18-console.html"
 Write-Host "  Dual-arm 8ch console:  http://127.0.0.1:$Port/arm-console.html"
 Write-Host ""

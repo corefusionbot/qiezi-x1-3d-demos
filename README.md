@@ -16,9 +16,9 @@
 >
 > 场景演示:[TikTok](https://www.tiktok.com/@alankwok516/video/7660736349024029959?is_from_webapp=1&sender_device=pc) ｜ [YouTube Shorts](https://youtube.com/shorts/mXssJ0xu4No?feature=share)
 >
-> 在线演示 & 申领登记页:<https://corefusionbot.github.io/qiezi-x1-3d-demos/> (3D 演示入口 + 就地填写申领表单)
+> 在线演示 & 申领登记页:<https://corefusionbot.github.io/corefusion-3d-demos/> (3D 演示入口 + 就地填写申领表单)
 >
-> 免费领取机器人说明:[图文在线预览(双语 5 页)](#免费领取机器人说明双语图文预览) ｜ [下载原始 PDF](https://raw.githubusercontent.com/corefusionbot/qiezi-x1-3d-demos/main/docs/free-robot-guide-bilingual.pdf)
+> 免费领取机器人说明:[图文在线预览(双语 5 页)](#免费领取机器人说明双语图文预览) ｜ [下载原始 PDF](https://raw.githubusercontent.com/corefusionbot/corefusion-3d-demos/main/docs/free-robot-guide-bilingual.pdf)
 
 <p align="center">
   <a href="https://docs.qq.com/smartsheet/form/NMHQOIBaWwdc%2Ft00i2h%2FvrJWCs?tab=t00i2h" target="_blank" rel="noopener"><img src="assets/apply-badge-cn.svg" alt="机器人免费领取 · 国内登记" width="300" /></a>
@@ -79,7 +79,7 @@
 
 ## 免费领取机器人说明(双语图文预览)
 
-> 逐页图文预览(所有访客/手机均可直接查看,无需依赖 GitHub 的 PDF 预览器);需原始文件见 [下载原始 PDF](https://raw.githubusercontent.com/corefusionbot/qiezi-x1-3d-demos/main/docs/free-robot-guide-bilingual.pdf)。
+> 逐页图文预览(所有访客/手机均可直接查看,无需依赖 GitHub 的 PDF 预览器);需原始文件见 [下载原始 PDF](https://raw.githubusercontent.com/corefusionbot/corefusion-3d-demos/main/docs/free-robot-guide-bilingual.pdf)。
 
 <p align="center">
   <img src="docs/pages/guide-01.png" width="80%" alt="免费领取机器人说明 第1页" />
