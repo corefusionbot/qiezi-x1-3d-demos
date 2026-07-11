@@ -1,6 +1,6 @@
 <p align="right"><b>中文</b> | <a href="README.en.md">English</a></p>
 
-# 茄子 X1 · 3D 互动演示
+# 堆芯聚变 · 3D 互动演示
 
 > ### 数万元级实体情感交互机器人,全球免费申领。(需实名认证,每人限领一个,无限领取)
 > **OpenClaw 在虚拟世界长出了手和脚,我们在物理世界长出了头和手。**
@@ -31,9 +31,9 @@
 <p align="center"><sub><b>海外用户</b>(Google 表单):姓名 · 国家/地区 · 邮箱 · 联系电话(中国大陆访问 Google 需自备网络环境)</sub></p>
 
 <p align="center">
-  <img src="assets/showcase-3.jpg" width="30%" alt="茄子 X1 结构外壳样机" />
-  <img src="assets/showcase-2.jpg" width="30%" alt="茄子 X1 仿生头颈样机" />
-  <img src="assets/showcase-1.jpg" width="30%" alt="茄子 X1 概念形象" />
+  <img src="assets/showcase-3.jpg" width="30%" alt="堆芯聚变 结构外壳样机" />
+  <img src="assets/showcase-2.jpg" width="30%" alt="堆芯聚变 仿生头颈样机" />
+  <img src="assets/showcase-1.jpg" width="30%" alt="堆芯聚变 概念形象" />
 </p>
 
 ## 联系方式
@@ -96,4 +96,4 @@
 - **不随附 3D 头模文件**(见上一节);其余部分是原项目仓库某时点的**快照**(2026-07-08),后续原项目更新
   不会自动同步到本仓库。
 
-—— 茄子 X1 项目 · 3D 演示子集(生成方式见原项目仓库 `docs/X1整机开发方案.md` §4)
+—— 堆芯聚变 项目 · 3D 演示子集(生成方式见原项目仓库 `docs/X1整机开发方案.md` §4)

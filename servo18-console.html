@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>茄子 X1 · 18路舵机控制模拟台(3D实况)</title>
+<title>堆芯聚变 · 18路舵机控制模拟台(3D实况)</title>
 <link rel="icon" href="data:,"><!-- 空 favicon:免去浏览器对 /favicon.ico 的 404 请求,控制台净空 -->
 <style>
   :root{--bg:#05070d;--panel:#0c111d;--panel2:#10192c;--line:#1a2740;--line2:#2c3e62;--txt:#e8eef9;
@@ -336,7 +336,7 @@
   </div>
   <h2>说话口型演示(viseme 15 键同后端 visemeMap)/ Talk demo</h2>
   <div class="row"><button class="eb" id="btnTalk">🎤 说话演示</button></div>
-  <p class="note">台词「你好,我是茄子X1,很高兴见到你。」——其拼音序列经后端 viseme.build_plan 时序规则
+  <p class="note">台词「你好,我是堆芯聚变,很高兴见到你。」——其拼音序列经后端 viseme.build_plan 时序规则
    离线预排(0.12s/帧 · 标点停顿 0.18s · 断流 0.4s 老化清零,常量已锁定);播放时嘴部 5 通道
    (AU17/20/23/25/26)按帧调度(到期生效、末帧胜出,同 VisemeScheduler),走同一 250°/s 限速管线并同步
    3D,不改写滑杆目标值;急停或再次点击可中断。诚实边界:真机口型由 TTS 音素时间戳实时驱动,此处为预排时间表演示。</p>
@@ -720,7 +720,7 @@ const SCRIPTS={
   {t:15,action:{type:'arousal',to:100,over:0.5}}]};
 
 /* ===== 说话演示时间表(页面演示数据,非锁定常量) =====
-   台词「你好,我是茄子X1,很高兴见到你。」拼音 "nihao, woshi qiezi X1, hen gaoxing jiandao ni."
+   台词「你好,我是堆芯聚变,很高兴见到你。」拼音 "nihao, woshi duixin jubian, hen gaoxing jiandao ni."
    经后端 bionic_cognition/viseme.build_plan(DEFAULT_FRAME_S/PUNCT_PAUSE_S 同 VTIME)离线预排;
    条目 [viseme, weight, offset_s]。诚实边界:真机由 TTS 音素时间戳驱动,此为预排演示。 */
 const TALK_LINE=[["nn",0.6,0.0],["I",0.9,0.12],["kk",0.6,0.24],["aa",0.9,0.36],["O",0.9,0.48],

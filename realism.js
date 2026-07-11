@@ -1,4 +1,4 @@
-// 茄子 X1 · 3D 渲染级拟真化共享模块(servo18-console / face3d-demo / avatar3d 三页共用)
+// 堆芯聚变 · 3D 渲染级拟真化共享模块(servo18-console / face3d-demo / avatar3d 三页共用)
 // 单一真值源:灯光配方、材质升级、程序化毛孔法线全部在此,页面只 import 调用。
 // 纯演示层参数(不涉及后端真值,不入 check_alignment);2026-07-04 经多轮实机截图调参定稿。
 import * as THREE from 'three';
